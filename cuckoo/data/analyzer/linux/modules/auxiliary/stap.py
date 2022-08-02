@@ -25,8 +25,7 @@ class STAP(Auxiliary):
         # helper function locating the stap module
         def has_stap(p):
             only_stap = [fn for fn in os.listdir(p) if fn.startswith("stap_") and fn.endswith(".ko")]
-            if only_stap: return os.path.join(p, only_stap[0])
-            return False
+            return os.path.join(p, only_stap[0]) if only_stap else False
 
         path_cfg = self.config.get("analyzer_stap_path", None)
         if path_cfg and os.path.exists(path_cfg):

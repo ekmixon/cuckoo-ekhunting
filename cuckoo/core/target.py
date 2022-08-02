@@ -177,9 +177,7 @@ class Target(object):
             )
 
     def copy_exists(self):
-        if not self.copied_binary:
-            return False
-        return os.path.isfile(self.copied_binary)
+        return os.path.isfile(self.copied_binary) if self.copied_binary else False
 
     def __getitem__(self, item):
         """Make Target readable as dictionary"""

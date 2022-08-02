@@ -196,7 +196,7 @@ class CuckooHost(object):
             args = self.human_readable_info[api]["args"]
             description += [x["name"] for x in args]
         else: # fallback to arg0, arg1, ..., argN
-            for arg_idx in range(0, len(thing.args)):
+            for arg_idx in range(len(thing.args)):
                 description += ["arg%d" % arg_idx]
         return description
 
@@ -206,9 +206,9 @@ class CuckooHost(object):
             with open(signatures, "r") as infile:
                 self.human_readable_info = yaml.safe_load(infile)
         except IOError:
-            log.exception("Could not open %s" % path.basename(signatures))
+            log.exception(f"Could not open {path.basename(signatures)}")
         except ValueError:
-            log.exception("Invalid YAML file %s" % path.basename(signatures))
+            log.exception(f"Invalid YAML file {path.basename(signatures)}")
 
 
 def _proc_name_from_pid(pid):

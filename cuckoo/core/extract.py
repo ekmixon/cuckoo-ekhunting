@@ -115,17 +115,18 @@ class ExtractManager(object):
             return
 
         # This file contains a plaintext representation of the shellcode.
-        open("%s.txt" % filepath, "wb").write(egghatch.as_text(sc))
+        open(f"{filepath}.txt", "wb").write(egghatch.as_text(sc))
 
         yara_matches = File(filepath).get_yara("shellcode")
-        self.items.append({
-            "category": "shellcode",
-            "raw": filepath,
-            "yara": yara_matches,
-            "info": {
-                "pretty": "%s.txt" % filepath,
-            },
-        })
+        self.items.append(
+            {
+                "category": "shellcode",
+                "raw": filepath,
+                "yara": yara_matches,
+                "info": {"pretty": f"{filepath}.txt"},
+            }
+        )
+
         for match in yara_matches:
             match = YaraMatch(match, "shellcode")
             self.handle_yara(filepath, match)
@@ -148,16 +149,15 @@ class ExtractManager(object):
             self.handle_yara(filepath, match)
 
     def push_blob_noyara(self, blob, category, info=None):
-        filepath = self.write_extracted("blob", blob)
-        if not filepath:
+        if filepath := self.write_extracted("blob", blob):
+            self.items.append({
+                "category": category,
+                "raw": filepath,
+                "yara": [],
+                "info": info or {},
+            })
+        else:
             return
-
-        self.items.append({
-            "category": category,
-            "raw": filepath,
-            "yara": [],
-            "info": info or {},
-        })
 
     def push_config(self, config):
         if not isinstance(config, dict) or "family" not in config:

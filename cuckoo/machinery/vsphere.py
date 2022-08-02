@@ -152,13 +152,10 @@ class vSphere(Machinery):
         """
         name = self.db.view_machine_by_label(label).snapshot
         with SmartConnection(**self.connect_opts) as conn:
-            vm = self._get_virtual_machine_by_label(conn, label)
-            if vm:
+            if vm := self._get_virtual_machine_by_label(conn, label):
                 self._revert_snapshot(vm, name)
             else:
-                raise CuckooMachineError(
-                    "Machine %s not found on host" % label
-                )
+                raise CuckooMachineError(f"Machine {label} not found on host")
 
     def stop(self, label):
         """Stop a machine.
@@ -166,13 +163,10 @@ class vSphere(Machinery):
         @raise CuckooMachineError: if unable to stop machine
         """
         with SmartConnection(**self.connect_opts) as conn:
-            vm = self._get_virtual_machine_by_label(conn, label)
-            if vm:
+            if vm := self._get_virtual_machine_by_label(conn, label):
                 self._stop_virtual_machine(vm)
             else:
-                raise CuckooMachineError(
-                    "Machine %s not found on host" % label
-                )
+                raise CuckooMachineError(f"Machine {label} not found on host")
 
     def dump_memory(self, label, path):
         """Take a memory dump of a machine.
@@ -181,22 +175,18 @@ class vSphere(Machinery):
         """
         name = "cuckoo_memdump_{0}".format(random.randint(100000, 999999))
         with SmartConnection(**self.connect_opts) as conn:
-            vm = self._get_virtual_machine_by_label(conn, label)
-            if vm:
+            if vm := self._get_virtual_machine_by_label(conn, label):
                 self._create_snapshot(vm, name)
                 self._download_snapshot(conn, vm, name, path)
                 self._delete_snapshot(vm, name)
             else:
-                raise CuckooMachineError(
-                    "Machine %s not found on host" % label
-                )
+                raise CuckooMachineError(f"Machine {label} not found on host")
 
     def _list(self):
         """List virtual machines on vSphere host"""
         ret = []
         with SmartConnection(**self.connect_opts) as conn:
-            for vm in self._get_virtual_machines(conn):
-                ret.append(vm.summary.config.name)
+            ret.extend(vm.summary.config.name for vm in self._get_virtual_machines(conn))
         return ret
 
     def _status(self, label):
@@ -207,9 +197,7 @@ class vSphere(Machinery):
         with SmartConnection(**self.connect_opts) as conn:
             vm = self._get_virtual_machine_by_label(conn, label)
             if not vm:
-                raise CuckooMachineError(
-                    "Machine %s not found on server" % label
-                )
+                raise CuckooMachineError(f"Machine {label} not found on server")
 
             status = vm.runtime.powerState
             self.set_status(label, status)
@@ -220,16 +208,14 @@ class vSphere(Machinery):
         def traverseDCFolders(conn, nodes, path=""):
             for node in nodes:
                 if hasattr(node, "childEntity"):
-                    for child, childpath in traverseDCFolders(conn, node.childEntity, path + node.name + "/"):
-                        yield child, childpath
+                    yield from traverseDCFolders(conn, node.childEntity, path + node.name + "/")
                 else:
                     yield node, path + node.name
 
         def traverseVMFolders(conn, nodes):
             for node in nodes:
                 if hasattr(node, "childEntity"):
-                    for child in traverseVMFolders(conn, node.childEntity):
-                        yield child
+                    yield from traverseVMFolders(conn, node.childEntity)
                 else:
                     yield node
 
@@ -244,9 +230,11 @@ class vSphere(Machinery):
     def _get_virtual_machine_by_label(self, conn, label):
         """Return the named VirtualMachine managed object"""
         for vm in self._get_virtual_machines(conn):
-            if hasattr(vm.summary.config, "name"):
-                if vm.summary.config.name == label:
-                    return vm
+            if (
+                hasattr(vm.summary.config, "name")
+                and vm.summary.config.name == label
+            ):
+                return vm
 
     def _get_snapshot_by_name(self, vm, name):
         """Return the named VirtualMachineSnapshot managed object for
@@ -275,47 +263,43 @@ class vSphere(Machinery):
         try:
             self._wait_task(task)
         except CuckooMachineError as e:
-            raise CuckooMachineError("CreateSnapshot: %s" % e)
+            raise CuckooMachineError(f"CreateSnapshot: {e}")
 
     def _delete_snapshot(self, vm, name):
         """Remove named snapshot of virtual machine"""
-        snapshot = self._get_snapshot_by_name(vm, name)
-        if snapshot:
-            log.info(
-                "Removing snapshot %s for machine %s",
-                name, vm.summary.config.name
+        if not (snapshot := self._get_snapshot_by_name(vm, name)):
+            raise CuckooMachineError(
+                f"Snapshot {name} for machine {vm.summary.config.name} not found"
             )
 
-            task = snapshot.RemoveSnapshot_Task(removeChildren=True)
-            try:
-                self._wait_task(task)
-            except CuckooMachineError as e:
-                log.error("RemoveSnapshot: {0}".format(e))
-        else:
-            raise CuckooMachineError(
-                "Snapshot %s for machine %s not found" %
-                (name, vm.summary.config.name)
-            )
+        log.info(
+            "Removing snapshot %s for machine %s",
+            name, vm.summary.config.name
+        )
+
+        task = snapshot.RemoveSnapshot_Task(removeChildren=True)
+        try:
+            self._wait_task(task)
+        except CuckooMachineError as e:
+            log.error("RemoveSnapshot: {0}".format(e))
 
     def _revert_snapshot(self, vm, name):
         """Revert virtual machine to named snapshot"""
-        snapshot = self._get_snapshot_by_name(vm, name)
-        if snapshot:
-            log.info(
-                "Reverting machine %s to snapshot %s",
-                vm.summary.config.name, name
+        if not (snapshot := self._get_snapshot_by_name(vm, name)):
+            raise CuckooMachineError(
+                f"Snapshot {name} for machine {vm.summary.config.name} not found"
             )
 
-            task = snapshot.RevertToSnapshot_Task()
-            try:
-                self._wait_task(task)
-            except CuckooMachineError as e:
-                raise CuckooMachineError("RevertToSnapshot: %s" % e)
-        else:
-            raise CuckooMachineError(
-                "Snapshot %s for machine %s not found" %
-                (name, vm.summary.config.name)
-            )
+        log.info(
+            "Reverting machine %s to snapshot %s",
+            vm.summary.config.name, name
+        )
+
+        task = snapshot.RevertToSnapshot_Task()
+        try:
+            self._wait_task(task)
+        except CuckooMachineError as e:
+            raise CuckooMachineError(f"RevertToSnapshot: {e}")
 
     def _download_snapshot(self, conn, vm, name, path):
         """Download snapshot file from host to local path"""
@@ -324,9 +308,9 @@ class vSphere(Machinery):
         snapshot = self._get_snapshot_by_name(vm, name)
         if not snapshot:
             raise CuckooMachineError(
-                "Snapshot %s for machine %s not found" %
-                (name, vm.summary.config.name)
+                f"Snapshot {name} for machine {vm.summary.config.name} not found"
             )
+
 
         memorykey = datakey = filespec = None
         for s in vm.layoutEx.snapshot:
@@ -336,8 +320,10 @@ class vSphere(Machinery):
                 break
 
         for f in vm.layoutEx.file:
-            if f.key == memorykey and (f.type == "snapshotMemory" or
-                                       f.type == "suspendMemory"):
+            if f.key == memorykey and f.type in [
+                "snapshotMemory",
+                "suspendMemory",
+            ]:
                 filespec = f.name
                 break
 
@@ -363,9 +349,8 @@ class vSphere(Machinery):
         headers = {
             "Cookie": conn._stub.cookie,
         }
-        url = "https://%s:%s/folder/%s" % (
-            self.connect_opts["host"], self.connect_opts["port"], filepath
-        )
+        url = f'https://{self.connect_opts["host"]}:{self.connect_opts["port"]}/folder/{filepath}'
+
 
         # Stream download to specified local path
         try:
@@ -379,10 +364,7 @@ class vSphere(Machinery):
                     localfile.write(chunk)
 
         except Exception as e:
-            raise CuckooMachineError(
-                "Error downloading memory dump %s: %s" %
-                (filespec, e)
-            )
+            raise CuckooMachineError(f"Error downloading memory dump {filespec}: {e}")
 
     def _stop_virtual_machine(self, vm):
         """Power off a virtual machine"""
@@ -414,6 +396,5 @@ class vSphere(Machinery):
         """Recursive depth-first traversal of snapshot tree"""
         for node in root:
             if len(node.childSnapshotList) > 0:
-                for child in self._traverseSnapshots(node.childSnapshotList):
-                    yield child
+                yield from self._traverseSnapshots(node.childSnapshotList)
             yield node

@@ -30,7 +30,7 @@ class Sniffer(Auxiliary):
 
         tcpdump = self.options["tcpdump"]
         bpf = self.options["bpf"] or ""
-        file_path = cwd("storage", "analyses", "%s" % self.task.id, "dump.pcap")
+        file_path = cwd("storage", "analyses", f"{self.task.id}", "dump.pcap")
 
         if not os.path.exists(tcpdump):
             log.error("Tcpdump does not exist at path \"%s\", network "
@@ -49,36 +49,59 @@ class Sniffer(Auxiliary):
             "-i", self.machine.interface,
         ]
 
-        # Trying to save pcap with the same user which cuckoo is running.
-        user = getuser()
-        if user:
+        if user := getuser():
             pargs.extend(["-Z", user])
 
-        pargs.extend(["-w", file_path])
-        pargs.extend(["host", self.machine.ip])
-
+        pargs.extend(["-w", file_path, "host", self.machine.ip])
         if self.task.options.get("sniffer.debug") != "1":
-            # Do not capture Agent traffic.
-            pargs.extend([
-                "and", "not", "(",
-                "dst", "host", self.machine.ip, "and",
-                "dst", "port", "%s" % CUCKOO_GUEST_PORT,
-                ")", "and", "not", "(",
-                "src", "host", self.machine.ip, "and",
-                "src", "port", "%s" % CUCKOO_GUEST_PORT,
-                ")",
-            ])
-
-            # Do not capture ResultServer traffic.
-            pargs.extend([
-                "and", "not", "(",
-                "dst", "host", self.machine.resultserver_ip, "and",
-                "dst", "port", "%s" % self.machine.resultserver_port,
-                ")", "and", "not", "(",
-                "src", "host", self.machine.resultserver_ip, "and",
-                "src", "port", "%s" % self.machine.resultserver_port,
-                ")",
-            ])
+            pargs.extend(
+                [
+                    "and",
+                    "not",
+                    "(",
+                    "dst",
+                    "host",
+                    self.machine.ip,
+                    "and",
+                    "dst",
+                    "port",
+                    f"{CUCKOO_GUEST_PORT}",
+                    ")",
+                    "and",
+                    "not",
+                    "(",
+                    "src",
+                    "host",
+                    self.machine.ip,
+                    "and",
+                    "src",
+                    "port",
+                    f"{CUCKOO_GUEST_PORT}",
+                    ")",
+                    "and",
+                    "not",
+                    "(",
+                    "dst",
+                    "host",
+                    self.machine.resultserver_ip,
+                    "and",
+                    "dst",
+                    "port",
+                    f"{self.machine.resultserver_port}",
+                    ")",
+                    "and",
+                    "not",
+                    "(",
+                    "src",
+                    "host",
+                    self.machine.resultserver_ip,
+                    "and",
+                    "src",
+                    "port",
+                    f"{self.machine.resultserver_port}",
+                    ")",
+                ]
+            )
 
             if bpf:
                 pargs.extend(["and", "(", bpf, ")"])

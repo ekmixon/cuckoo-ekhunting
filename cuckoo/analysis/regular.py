@@ -98,16 +98,17 @@ class Regular(AnalysisManager):
             task_options = {}
             package, activity = self.target.helper.get_apk_entry()
             if package and activity:
-                task_options["apk_entry"] = "%s:%s" % (package, activity)
+                task_options["apk_entry"] = f"{package}:{activity}"
 
-            options.update({
+            options |= {
                 "file_name": os.path.basename(self.target.target),
                 "file_type": self.target.helper.get_type(),
                 "pe_exports": ",".join(
                     self.target.helper.get_exported_functions()
                 ),
-                "options": task_options
-            })
+                "options": task_options,
+            }
+
 
         self.build_options(options=options)
 
@@ -124,9 +125,8 @@ class Regular(AnalysisManager):
             # See if the analysis did not fail in the analysis manager
             # and see if the status was not set to failed by
             # the guest manager
-            if analysis_success:
-                if self.analysis.status == Analysis.FAILED:
-                    analysis_success = False
+            if analysis_success and self.analysis.status == Analysis.FAILED:
+                analysis_success = False
         except Exception as e:
             log.exception(
                 "Failure during the starting of task #%s. Error: %s",
@@ -427,10 +427,7 @@ class Regular(AnalysisManager):
                 self.guest_manager.wait_for_completion()
 
     def set_target(self, targets):
-        if targets:
-            self.target = targets[0]
-        else:
-            self.target = Target()
+        self.target = targets[0] if targets else Target()
 
     def on_status_starting(self, db):
         """Is executed by the scheduler on analysis status starting

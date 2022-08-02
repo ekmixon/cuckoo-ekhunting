@@ -19,10 +19,7 @@ def has_com_exports(exports):
         "DllUnregisterServer",
     ]
 
-    for name in com_exports:
-        if name not in exports:
-            return False
-    return True
+    return all(name in exports for name in com_exports)
 
 def get_package_class(package):
     """Return a class object for the given analysis package name
@@ -52,7 +49,6 @@ def choose_package(config):
         # The default analysis package for the URL category is ie.
         package = "ie"
 
-    # Try to find a matching analysis package for a file.
     elif category == "file":
         for pkg, search in packages.iteritems():
 
@@ -66,11 +62,7 @@ def choose_package(config):
                 if ftype.lower() in config.get("file_type", "").lower():
                     package = pkg
 
-                    # Custom handlers can exist if more selection criteria
-                    # is required when a matching analysis package is
-                    # found
-                    custom_handler = search.get("custom")
-                    if custom_handler:
+                    if custom_handler := search.get("custom"):
                         package = custom_handler(config)
                     break
 

@@ -76,19 +76,19 @@ class CmdExe(Scripting):
             idx = 0
 
         while idx < len(cmdline):
-            if cmdline[idx] == "/c" or cmdline[idx] == "/C":
+            if cmdline[idx] in ["/c", "/C"]:
                 ret["remains"] = False
                 ret["command"] = cmdline[idx+1:]
                 self.parse_command(cmdline[idx+1:])
                 break
 
-            if cmdline[idx] == "/k" or cmdline[idx] == "/K":
+            if cmdline[idx] in ["/k", "/K"]:
                 ret["remains"] = True
                 ret["command"] = cmdline[idx+1:]
                 self.parse_command(cmdline[idx+1:])
                 break
 
-            if cmdline[idx] == "/q" or cmdline[idx] == "/Q":
+            if cmdline[idx] in ["/q", "/Q"]:
                 ret["quiet"] = True
                 idx += 1
                 continue
@@ -107,9 +107,10 @@ class CmdExe(Scripting):
 def ps1_cmdarg(s, minimum=1):
     """Creates an exactly matching PowerShell command line argument regex,
     instead of a regex that matches anything with the same characters."""
-    return "".join(
-        "([%s%s^]" % (ch.lower(), ch.upper()) for ch in s
-    ) + ")?"*(len(s)-minimum) + ")"*minimum
+    return (
+        "".join(f"([{ch.lower()}{ch.upper()}^]" for ch in s)
+        + ")?" * (len(s) - minimum)
+    ) + ")" * minimum
 
 class PowerShell(Scripting):
     EXE_REGEX = (
@@ -171,7 +172,7 @@ class PowerShell(Scripting):
                 if not re.match(regex, cmdline[idx]):
                     continue
 
-                fn = getattr(self, "_cmdparse_%s" % key, None)
+                fn = getattr(self, f"_cmdparse_{key}", None)
                 used, value = fn(cmdline, idx) if fn else (0, True)
 
                 ret[key] = value

@@ -29,7 +29,7 @@ class Route(object):
             "route", config("routing:routing:route")
         )
 
-        if self.route == "none" or self.route == "drop":
+        if self.route in ["none", "drop"]:
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
@@ -133,7 +133,7 @@ class Route(object):
             return False
 
         # For now this doesn't work yet in combination with tor routing.
-        if self.route == "drop" or self.route == "internet":
+        if self.route in ["drop", "internet"]:
             rooter(
                 "drop_enable", self.machine.ip,
                 config("cuckoo:resultserver:ip"),
@@ -143,12 +143,14 @@ class Route(object):
         if self.route == "inetsim":
             machinery = config("cuckoo:cuckoo:machinery")
             rooter(
-                "inetsim_enable", self.machine.ip,
+                "inetsim_enable",
+                self.machine.ip,
                 config("routing:inetsim:server"),
-                config("%s:%s:interface" % (machinery, machinery)),
+                config(f"{machinery}:{machinery}:interface"),
                 str(config("cuckoo:resultserver:port")),
-                config("routing:inetsim:ports") or ""
+                config("routing:inetsim:ports") or "",
             )
+
 
         if self.route == "tor":
             rooter(
@@ -192,7 +194,7 @@ class Route(object):
                 "srcroute_disable", self.rt_table, self.machine.ip
             )
 
-        if self.route == "drop" or self.route == "internet":
+        if self.route in ["drop", "internet"]:
             rooter(
                 "drop_disable", self.machine.ip,
                 config("cuckoo:resultserver:ip"),
@@ -202,12 +204,14 @@ class Route(object):
         if self.route == "inetsim":
             machinery = config("cuckoo:cuckoo:machinery")
             rooter(
-                "inetsim_disable", self.machine.ip,
+                "inetsim_disable",
+                self.machine.ip,
                 config("routing:inetsim:server"),
-                config("%s:%s:interface" % (machinery, machinery)),
+                config(f"{machinery}:{machinery}:interface"),
                 str(config("cuckoo:resultserver:port")),
-                config("routing:inetsim:ports") or ""
+                config("routing:inetsim:ports") or "",
             )
+
 
         if self.route == "tor":
             rooter(
@@ -243,32 +247,34 @@ class VPNManager(object):
 
         cls.vpns = []
 
-        used_vpns = set([
-            task.route for task in
-            db.list_tasks(
-            filter_by="route", operators="!=", values="none", details=False,
-            order_by="started_on", limit=len(config("routing:vpn:vpns"))
-        )])
+        used_vpns = {
+            task.route
+            for task in db.list_tasks(
+                filter_by="route",
+                operators="!=",
+                values="none",
+                details=False,
+                order_by="started_on",
+                limit=len(config("routing:vpn:vpns")),
+            )
+        }
 
-        vpns = []
-        # Insert the vpn names in order, so that the last used vpns end up
-        # at the end of the vpn list.
-        for vpn in config("routing:vpn:vpns"):
-            if vpn not in used_vpns:
-                vpns.append(vpn)
 
+        vpns = [vpn for vpn in config("routing:vpn:vpns") if vpn not in used_vpns]
         for used in used_vpns:
             if used in config("routing:vpn:vpns"):
                 vpns.append(used)
 
-        for vpn in vpns:
-            cls.vpns.append({
-                "name": config("routing:%s:name" % vpn),
-                "country": config("routing:%s:country" % vpn),
-                "description": config("routing:%s:description" % vpn),
-                "interface": config("routing:%s:interface" % vpn),
-                "rt_table": config("routing:%s:rt_table" % vpn)
-            })
+        cls.vpns.extend(
+            {
+                "name": config(f"routing:{vpn}:name"),
+                "country": config(f"routing:{vpn}:country"),
+                "description": config(f"routing:{vpn}:description"),
+                "interface": config(f"routing:{vpn}:interface"),
+                "rt_table": config(f"routing:{vpn}:rt_table"),
+            }
+            for vpn in vpns
+        )
 
     @classmethod
     def acquire(cls, country=None, name=None):

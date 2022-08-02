@@ -57,8 +57,9 @@ class Avd(Machinery):
 
         machine_path = os.path.join(self.options.avd.avd_path,
                                     self.options.avd.reference_machine)
-        if not os.path.exists("%s.avd" % machine_path) or \
-                not os.path.exists("%s.ini" % machine_path):
+        if not os.path.exists(f"{machine_path}.avd") or not os.path.exists(
+            f"{machine_path}.ini"
+        ):
             raise CuckooCriticalError("reference machine not found at "
                                       "specified path \"%s\"" % machine_path)
 
@@ -69,7 +70,7 @@ class Avd(Machinery):
         @param revert: Revert machine to snapshot
         @raise CuckooMachineError: if unable to start.
         """
-        log.debug("Starting vm %s" % label)
+        log.debug(f"Starting vm {label}")
 
         self.duplicate_reference_machine(label)
         self.start_emulator(label, task)
@@ -81,7 +82,7 @@ class Avd(Machinery):
         @param label: virtual machine name.
         @raise CuckooMachineError: if unable to stop.
         """
-        log.debug("Stopping vm %s" % label)
+        log.debug(f"Stopping vm {label}")
         self.stop_emulator(label)
 
     def _list(self):
@@ -95,7 +96,7 @@ class Avd(Machinery):
         @param label: virtual machine name.
         @return: status string.
         """
-        log.debug("Getting status for %s" % label)
+        log.debug(f"Getting status for {label}")
 
     def duplicate_reference_machine(self, label):
         """Creates a new emulator based on a reference one."""
@@ -105,10 +106,16 @@ class Avd(Machinery):
         # Clean/delete if new emulator already exists.
         self.delete_old_emulator(label)
 
-        avd_config_file = os.path.join(self.options.avd.avd_path, reference_machine+".ini")
-        new_config_file = os.path.join(self.options.avd.avd_path, label+".ini")
-        reference_avd_path = os.path.join(self.options.avd.avd_path, reference_machine+".avd/")
-        new_avd_path = os.path.join(self.options.avd.avd_path, label+".avd/")
+        avd_config_file = os.path.join(
+            self.options.avd.avd_path, f"{reference_machine}.ini"
+        )
+
+        new_config_file = os.path.join(self.options.avd.avd_path, f"{label}.ini")
+        reference_avd_path = os.path.join(
+            self.options.avd.avd_path, f"{reference_machine}.avd/"
+        )
+
+        new_avd_path = os.path.join(self.options.avd.avd_path, f"{label}.avd/")
         hw_qemu_config_file = os.path.join(new_avd_path, "hardware-qemu.ini")
 
         # First we copy the template.
@@ -130,14 +137,16 @@ class Avd(Machinery):
     def delete_old_emulator(self, label):
         """Deletes any trace of an emulator that would have the same name as
         the one of the current emulator."""
-        old_emulator_config_file = os.path.join(self.options.avd.avd_path,
-                                                "%s.ini" % label)
+        old_emulator_config_file = os.path.join(
+            self.options.avd.avd_path, f"{label}.ini"
+        )
+
 
         if os.path.exists(old_emulator_config_file):
             log.debug("Deleting old emulator config file '{0}'".format(old_emulator_config_file))
             os.remove(old_emulator_config_file)
 
-        old_emulator_path = os.path.join(self.options.avd.avd_path, label+".avd/")
+        old_emulator_path = os.path.join(self.options.avd.avd_path, f"{label}.avd/")
         if os.path.isdir(old_emulator_path):
             log.debug("Deleting old emulator FS '{0}'".format(old_emulator_path))
             shutil.rmtree(old_emulator_path)
@@ -151,8 +160,10 @@ class Avd(Machinery):
         newLines = []
         with open(fileName, 'r') as fd:
             lines = fd.readlines()
-            for line in lines:
-                newLines.append(line.replace(contentToReplace, replacementContent))
+            newLines.extend(
+                line.replace(contentToReplace, replacementContent)
+                for line in lines
+            )
 
         with open(fileName, 'w') as fd:
             fd.writelines(newLines)
@@ -163,17 +174,18 @@ class Avd(Machinery):
 
         cmd = [
             self.options.avd.emulator_path,
-            "@%s" % label,
+            f"@{label}",
             "-no-snapshot-save",
             "-netspeed",
             "full",
             "-netdelay",
             "none",
             "-port",
-            "%s" % emulator_port,
+            f"{emulator_port}",
             "-tcpdump",
             self.pcap_path(task.id),
         ]
+
 
         # In headless mode we remove the skin, audio, and window support.
         if self.options.avd.mode == "headless":
@@ -185,7 +197,7 @@ class Avd(Machinery):
         # though, so we manually replace the IP address by localhost.
         if "proxy" in task.options:
             _, port = task.options["proxy"].split(":")
-            cmd += ["-http-proxy", "http://127.0.0.1:%s" % port]
+            cmd += ["-http-proxy", f"http://127.0.0.1:{port}"]
 
         self.emulator_processes[label] = OSCommand.executeAsyncCommand(cmd)
         time.sleep(10)
@@ -202,9 +214,12 @@ class Avd(Machinery):
         # Kill process.
         cmd = [
             self.options.avd.adb_path,
-            "-s", "emulator-%s" % emulator_port,
-            "emu", "kill",
+            "-s",
+            f"emulator-{emulator_port}",
+            "emu",
+            "kill",
         ]
+
         OSCommand.executeCommand(cmd)
 
         time.sleep(1)
@@ -222,12 +237,8 @@ class Avd(Machinery):
         emulator_port = str(self.options.get(label)["emulator_port"])
         adb = self.options.avd.adb_path
 
-        log.debug("Waiting for device emulator-"+emulator_port+" to be ready.")
-        cmd = [
-            adb,
-            "-s", "emulator-%s" % emulator_port,
-            "wait-for-device",
-        ]
+        log.debug(f"Waiting for device emulator-{emulator_port} to be ready.")
+        cmd = [adb, "-s", f"emulator-{emulator_port}", "wait-for-device"]
         OSCommand.executeCommand(cmd)
 
         log.debug("Waiting for the emulator to be ready")
@@ -236,9 +247,13 @@ class Avd(Machinery):
         while not ready:
             cmd = [
                 adb,
-                "-s", "emulator-%s" % emulator_port,
-                "shell", "getprop", "dev.bootcomplete",
+                "-s",
+                f"emulator-{emulator_port}",
+                "shell",
+                "getprop",
+                "dev.bootcomplete",
             ]
+
             result = OSCommand.executeCommand(cmd)
             if result is not None and result.strip() == "1":
                 ready = True
@@ -250,9 +265,13 @@ class Avd(Machinery):
         while not ready:
             cmd = [
                 adb,
-                "-s", "emulator-%s" % emulator_port,
-                "shell", "getprop", "sys.boot_completed",
+                "-s",
+                f"emulator-{emulator_port}",
+                "shell",
+                "getprop",
+                "sys.boot_completed",
             ]
+
             result = OSCommand.executeCommand(cmd)
             if result is not None and result.strip() == "1":
                 ready = True
@@ -264,9 +283,13 @@ class Avd(Machinery):
         while not ready:
             cmd = [
                 adb,
-                "-s", "emulator-%s" % emulator_port,
-                "shell", "getprop", "init.svc.bootanim",
+                "-s",
+                f"emulator-{emulator_port}",
+                "shell",
+                "getprop",
+                "init.svc.bootanim",
             ]
+
             result = OSCommand.executeCommand(cmd)
             if result is not None and result.strip() == "stopped":
                 ready = True
@@ -274,22 +297,29 @@ class Avd(Machinery):
                 time.sleep(1)
 
         time.sleep(5)
-        log.debug("Emulator emulator-"+emulator_port+" is ready !")
+        log.debug(f"Emulator emulator-{emulator_port} is ready !")
 
     def port_forward(self, label):
         cmd = [
             self.options.avd.adb_path,
-            "-s", "emulator-%s" % self.options.get(label)["emulator_port"],
-            "forward", "tcp:8000", "tcp:8000",
+            "-s",
+            f'emulator-{self.options.get(label)["emulator_port"]}',
+            "forward",
+            "tcp:8000",
+            "tcp:8000",
         ]
+
         OSCommand.executeAsyncCommand(cmd)
 
     def start_agent(self, label):
         cmd = [
             self.options.avd.adb_path,
-            "-s", "emulator-%s" % self.options.get(label)["emulator_port"],
-            "shell", "/data/local/agent.sh",
+            "-s",
+            f'emulator-{self.options.get(label)["emulator_port"]}',
+            "shell",
+            "/data/local/agent.sh",
         ]
+
         OSCommand.executeAsyncCommand(cmd)
         # Sleep 10 seconds to allow the agent to startup properly
         time.sleep(10)
@@ -303,7 +333,7 @@ class Avd(Machinery):
         cmd = [self.options.avd.adb_path, "devices"]
         output = OSCommand.executeCommand(cmd)
 
-        emu = "emulator-%s" % self.options.get(label)["emulator_port"]
+        emu = f'emulator-{self.options.get(label)["emulator_port"]}'
         if emu in output:
             log.debug("Emulator has been found!")
             return True

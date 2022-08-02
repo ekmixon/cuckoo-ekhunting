@@ -604,9 +604,10 @@ def _20c2_200(c):
     for old_item in old_items:
         new_item = old_item.replace("-", "_")
         c["reporting"]["mattermost"][new_item] = cast(
-            "reporting:mattermost:%s" % new_item,
-            c["reporting"]["mattermost"].pop(old_item, False)
+            f"reporting:mattermost:{new_item}",
+            c["reporting"]["mattermost"].pop(old_item, False),
         )
+
 
     c["reporting"]["moloch"]["insecure"] = False
     c["reporting"]["mongodb"]["username"] = None
@@ -651,8 +652,9 @@ def _20c2_200(c):
 
     for item in ("route", "internet", "rt_table", "auto_rt"):
         c["routing"]["routing"][item] = cast(
-            "routing:routing:%s" % item, c["cuckoo"]["routing"].pop(item, None)
+            f"routing:routing:{item}", c["cuckoo"]["routing"].pop(item, None)
         )
+
 
     for vpn in c["vpn"]["vpn"]["vpns"].split(","):
         if not vpn.strip():

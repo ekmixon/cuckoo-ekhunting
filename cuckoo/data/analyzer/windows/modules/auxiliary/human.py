@@ -27,51 +27,6 @@ def click(hwnd):
     USER32.SendMessageW(hwnd, BM_CLICK, 0, 0)
 
 def foreach_child(hwnd, lparam):
-    # List of partial buttons labels to click.
-    buttons = [
-        "yes", "oui",
-        "ok",
-        "i accept",
-        "next", "suivant",
-        "new", "nouveau",
-        "install", "installer",
-        "file", "fichier",
-        "run", "start", "marrer", "cuter",
-        "extract",
-        "i agree", "accepte",
-        "enable", "activer", "accord", "valider",
-        "don't send", "ne pas envoyer",
-        "don't save",
-        "continue", "continuer",
-        "personal", "personnel",
-        "scan", "scanner",
-        "unzip", "dezip",
-        "open", "ouvrir",
-        "close the program",
-        "execute", "executer",
-        "launch", "lancer",
-        "save", "sauvegarder",
-        "download", "load", "charger",
-        "end", "fin", "terminer",
-        "later",
-        "finish",
-        "end",
-        "allow access",
-        "remind me later",
-        "save", "sauvegarder"
-    ]
-
-    # List of complete button texts to click. These take precedence.
-    buttons_complete = [
-        "&Ja",  # E.g., Dutch Office Word 2013.
-    ]
-
-    # List of buttons labels to not click.
-    dontclick = [
-        "don't run",
-        "i do not accept"
-    ]
-
     classname = create_unicode_buffer(50)
     USER32.GetClassNameW(hwnd, classname, 50)
 
@@ -82,6 +37,11 @@ def foreach_child(hwnd, lparam):
         text = create_unicode_buffer(length + 1)
         USER32.SendMessageW(hwnd, WM_GETTEXT, length + 1, text)
 
+        # List of complete button texts to click. These take precedence.
+        buttons_complete = [
+            "&Ja",  # E.g., Dutch Office Word 2013.
+        ]
+
         if text.value in buttons_complete:
             log.info("Found button %r, clicking it" % text.value)
             click(hwnd)
@@ -89,6 +49,46 @@ def foreach_child(hwnd, lparam):
 
         # Check if the button is set as "clickable" and click it.
         textval = text.value.replace("&", "").lower()
+        # List of partial buttons labels to click.
+        buttons = [
+            "yes", "oui",
+            "ok",
+            "i accept",
+            "next", "suivant",
+            "new", "nouveau",
+            "install", "installer",
+            "file", "fichier",
+            "run", "start", "marrer", "cuter",
+            "extract",
+            "i agree", "accepte",
+            "enable", "activer", "accord", "valider",
+            "don't send", "ne pas envoyer",
+            "don't save",
+            "continue", "continuer",
+            "personal", "personnel",
+            "scan", "scanner",
+            "unzip", "dezip",
+            "open", "ouvrir",
+            "close the program",
+            "execute", "executer",
+            "launch", "lancer",
+            "save", "sauvegarder",
+            "download", "load", "charger",
+            "end", "fin", "terminer",
+            "later",
+            "finish",
+            "end",
+            "allow access",
+            "remind me later",
+            "save", "sauvegarder"
+        ]
+
+        # List of buttons labels to not click.
+        dontclick = [
+            "don't run",
+            "i do not accept"
+        ]
+
         for button in buttons:
             if button in textval:
                 for btn in dontclick:

@@ -67,9 +67,8 @@ class PUB(Package):
     def start(self, path):
         publisher = self.get_path("Microsoft Office Publisher")
         if not path.endswith(".pub"):
-            os.rename(path, path + ".pub")
+            os.rename(path, f"{path}.pub")
             path += ".pub"
         return self.execute(
-            publisher, args=["/o", path], mode="office",
-            trigger="file:%s" % path
+            publisher, args=["/o", path], mode="office", trigger=f"file:{path}"
         )

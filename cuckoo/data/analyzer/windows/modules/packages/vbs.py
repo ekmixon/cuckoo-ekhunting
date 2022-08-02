@@ -19,8 +19,8 @@ class VBS(Package):
     def start(self, path):
         wscript = self.get_path("WScript")
         if not path.endswith(".vbs"):
-            os.rename(path, path + ".vbs")
+            os.rename(path, f"{path}.vbs")
             path += ".vbs"
             log.info("Submitted file is missing extension, added .vbs")
 
-        return self.execute(wscript, args=[path], trigger="file:%s" % path)
+        return self.execute(wscript, args=[path], trigger=f"file:{path}")

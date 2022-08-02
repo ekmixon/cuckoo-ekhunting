@@ -16,8 +16,8 @@ class Reboot(Package):
 
     def start(self, path):
         for category, args in self.analyzer.reboot:
-            if not hasattr(self, "_handle_%s" % category):
+            if not hasattr(self, f"_handle_{category}"):
                 log.warning("Unhandled reboot command: %s", category)
                 continue
 
-            getattr(self, "_handle_%s" % category)(*args)
+            getattr(self, f"_handle_{category}")(*args)

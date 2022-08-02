@@ -138,7 +138,7 @@ class QEMU(Machinery):
         @param revert: Revert machine to snapshot
         @raise CuckooMachineError: if unable to start.
         """
-        log.debug("Starting vm %s" % label)
+        log.debug(f"Starting vm {label}")
 
         vm_info = self.db.view_machine_by_label(label)
         vm_options = getattr(self.options, vm_info.name)
@@ -147,9 +147,9 @@ class QEMU(Machinery):
             snapshot_path = vm_options.image
         else:
             snapshot_path = os.path.join(
-                os.path.dirname(vm_options.image),
-                "snapshot_%s.qcow2" % vm_info.name
+                os.path.dirname(vm_options.image), f"snapshot_{vm_info.name}.qcow2"
             )
+
             if os.path.exists(snapshot_path):
                 os.remove(snapshot_path)
 
@@ -164,15 +164,13 @@ class QEMU(Machinery):
                 if err:
                     raise OSError(err)
             except OSError as e:
-                raise CuckooMachineError(
-                    "QEMU failed starting the machine: %s" % e
-                )
+                raise CuckooMachineError(f"QEMU failed starting the machine: {e}")
 
         vm_arch = getattr(vm_options, "arch", "default")
         arch_config = dict(QEMU_ARGS[vm_arch])
         cmdline = arch_config["cmdline"]
         params = dict(QEMU_ARGS["default"]["params"])
-        params.update(QEMU_ARGS[vm_arch]["params"])
+        params |= QEMU_ARGS[vm_arch]["params"]
 
         params.update({
             "imagepath": os.path.dirname(vm_options.image),
@@ -183,10 +181,8 @@ class QEMU(Machinery):
         # allow some overrides from the vm specific options
         # also do another round of parameter formatting
         for var in ["mac", "kernel", "initrd"]:
-            val = getattr(vm_options, var, params.get(var, None))
-            if not val:
-                continue
-            params[var] = val.format(**params)
+            if val := getattr(vm_options, var, params.get(var, None)):
+                params[var] = val.format(**params)
 
         # magic arg building
         final_cmdline = [i.format(**params) for i in cmdline]
@@ -203,19 +199,19 @@ class QEMU(Machinery):
             proc = subprocess.Popen(final_cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.state[vm_info.name] = proc
         except OSError as e:
-            raise CuckooMachineError("QEMU failed starting the machine: %s" % e)
+            raise CuckooMachineError(f"QEMU failed starting the machine: {e}")
 
     def stop(self, label):
         """Stops a virtual machine.
         @param label: virtual machine label.
         @raise CuckooMachineError: if unable to stop.
         """
-        log.debug("Stopping vm %s" % label)
+        log.debug(f"Stopping vm {label}")
 
         vm_info = self.db.view_machine_by_label(label)
 
         if self._status(vm_info.name) == self.STOPPED:
-            raise CuckooMachineError("Trying to stop an already stopped vm %s" % label)
+            raise CuckooMachineError(f"Trying to stop an already stopped vm {label}")
 
         proc = self.state.get(vm_info.name, None)
         proc.kill()
@@ -223,13 +219,11 @@ class QEMU(Machinery):
         stop_me = 0
         while proc.poll() is None:
             if stop_me < config("cuckoo:timeouts:vm_state"):
-                time.sleep(1)
                 stop_me += 1
             else:
-                log.debug("Stopping vm %s timeouted. Killing" % label)
+                log.debug(f"Stopping vm {label} timeouted. Killing")
                 proc.terminate()
-                time.sleep(1)
-
+            time.sleep(1)
         # if proc.returncode != 0 and stop_me < config("cuckoo:timeouts:vm_state"):
         #     log.debug("QEMU exited with error powering off the machine")
 
@@ -241,6 +235,4 @@ class QEMU(Machinery):
         @return: status string.
         """
         p = self.state.get(name, None)
-        if p is not None:
-            return self.RUNNING
-        return self.STOPPED
+        return self.RUNNING if p is not None else self.STOPPED

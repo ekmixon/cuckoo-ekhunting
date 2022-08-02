@@ -182,7 +182,7 @@ class PipeServer(threading.Thread):
                 continue
 
             if KERNEL32.ConnectNamedPipe(pipe_handle, None) or \
-                    KERNEL32.GetLastError() == ERROR_PIPE_CONNECTED:
+                        KERNEL32.GetLastError() == ERROR_PIPE_CONNECTED:
                 handler = self.pipe_handler(pipe_handle, **self.kwargs)
                 handler.daemon = True
                 handler.start()

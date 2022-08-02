@@ -21,8 +21,8 @@ class Javascript(Package):
 
         # Enforce the .js file extension as is required by wscript.
         if not path.endswith(".js"):
-            os.rename(path, path + ".js")
+            os.rename(path, f"{path}.js")
             path += ".js"
             log.info("Submitted file is missing extension, added .js")
 
-        return self.execute(wscript, args=[path], trigger="file:%s" % path)
+        return self.execute(wscript, args=[path], trigger=f"file:{path}")

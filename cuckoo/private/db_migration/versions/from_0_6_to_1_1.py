@@ -54,11 +54,9 @@ def upgrade():
     # I check for tags table to distinguish between Cuckoo 0.6 and 1.0.
     conn = op.get_bind()
 
-    if conn.engine.dialect.has_table(conn.engine.connect(), "machines_tags"):
-        # If this table exist we are on Cuckoo 1.0 or above.
-        # So skip SQL migration.
-        pass
-    else:
+    if not conn.engine.dialect.has_table(
+        conn.engine.connect(), "machines_tags"
+    ):
         # We are on Cuckoo < 1.0, hopefully 0.6.
         # So run SQL migration.
 
@@ -151,19 +149,20 @@ def upgrade():
             ).fetchall()
 
             for item in old_tasks:
-                d = {}
-                d["id"] = item[0]
-                d["target"] = item[1]
-                d["category"] = item[2]
-                d["timeout"] = item[3]
-                d["priority"] = item[4]
-                d["custom"] = item[5]
-                d["machine"] = item[6]
-                d["package"] = item[7]
-                d["options"] = item[8]
-                d["platform"] = item[9]
-                d["memory"] = item[10]
-                d["enforce_timeout"] = item[11]
+                d = {
+                    "id": item[0],
+                    "target": item[1],
+                    "category": item[2],
+                    "timeout": item[3],
+                    "priority": item[4],
+                    "custom": item[5],
+                    "machine": item[6],
+                    "package": item[7],
+                    "options": item[8],
+                    "platform": item[9],
+                    "memory": item[10],
+                    "enforce_timeout": item[11],
+                }
 
                 if isinstance(item[12], datetime):
                     d["added_on"] = item[12]

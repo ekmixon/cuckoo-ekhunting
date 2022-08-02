@@ -68,10 +68,7 @@ class ProcessList(object):
         if int(pid) in self.pids:
             return True
 
-        if notrack and int(pid) in self.pids_notrack:
-            return True
-
-        return False
+        return bool(notrack and int(pid) in self.pids_notrack)
 
     def remove_pid(self, pid):
         """Remove a process identifier from being tracked."""
@@ -208,9 +205,9 @@ class CommandPipeHandler(object):
 
             # If we have both pid and tid, then we can use APC to inject.
             if process_id and thread_id:
-                proc.inject(dll, apc=True, mode="%s" % mode)
+                proc.inject(dll, apc=True, mode=f"{mode}")
             else:
-                proc.inject(dll, apc=False, mode="%s" % mode)
+                proc.inject(dll, apc=False, mode=f"{mode}")
 
             log.info("Injected into process with pid %s and name %r",
                      proc.pid, filename)
@@ -304,7 +301,7 @@ class CommandPipeHandler(object):
             Process(pid=pid).dump_memory_block(int(addr), int(length))
 
     def _handle_track(self, data):
-        if not data.count(":") == 2:
+        if data.count(":") != 2:
             log.warning("Received TRACK command with an incorrect argument %r.", data)
             return
 
@@ -333,11 +330,7 @@ class CommandPipeHandler(object):
             else:
                 self.pid, command, arguments = data.strip().split(":", 2)
 
-            fn = getattr(self, "_handle_%s" % command.lower(), None)
-            if not fn:
-                log.critical("Unknown command received from the monitor: %r",
-                             data.strip())
-            else:
+            if fn := getattr(self, f"_handle_{command.lower()}", None):
                 try:
                     response = fn(arguments)
                 except:
@@ -346,6 +339,9 @@ class CommandPipeHandler(object):
                         "%s args %r).", command, arguments
                     )
 
+            else:
+                log.critical("Unknown command received from the monitor: %r",
+                             data.strip())
         return response
 
 class Analyzer(object):
@@ -473,8 +469,7 @@ class Analyzer(object):
                 "Unknown category '%s' specified" % category
             )
 
-        pids = pkg_instance.start(target)
-        if pids:
+        if pids := pkg_instance.start(target):
             self.plist.add_pids(pids)
 
         self.pkg_counter += 1
@@ -582,8 +577,9 @@ class Analyzer(object):
     def start_auxiliaries(self):
         Auxiliary()
         iter_aux_modules = pkgutil.iter_modules(
-            auxiliary.__path__, "%s." % auxiliary.__name__
+            auxiliary.__path__, f"{auxiliary.__name__}."
         )
+
         for loader, name, ispkg in iter_aux_modules:
             if ispkg:
                 continue

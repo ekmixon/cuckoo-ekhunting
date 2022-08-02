@@ -90,6 +90,7 @@ def typedefs_for_custom_structs(defs, types):
     defined in `types.yml`."""
     def flatten(list_of_lists):
         return sum(list_of_lists, [])
+
     def deep_search_types(parent, types):
         result = Set()
         for t in parent:
@@ -98,6 +99,7 @@ def typedefs_for_custom_structs(defs, types):
                 result |= deep_search_types(description["struct"].values(), types)
             result.add(dereference_type(t))
         return result
+
     # We will only generate typedefs for struct that are actually in use
     obviously_used_types = [x["type"] for x in flatten([y["args"] for y in defs])]
     all_used_types = deep_search_types(obviously_used_types, types)
@@ -109,7 +111,7 @@ def typedefs_for_custom_structs(defs, types):
     for (name, description) in struct_types.iteritems():
         fields = []
         for (f,t) in description["struct"].iteritems():
-            fields.append("%s %s;" % (t, f))
+            fields.append(f"{t} {f};")
         template = "typedef struct {\n\t%s\n} %s;\n\n"
         typedefs.append(template % ("\n\t".join(fields), name))
     return typedefs
@@ -156,12 +158,12 @@ def printf_format_for_struct(t, types):
     fields = []
     for (name, argtype) in type_description(t, types)["struct"].items():
         printf_specifier = type_description(argtype, types).get("printf_specifier", None)
-        if printf_specifier != None:
-            fields.append("\""+name +"\"" + " : " + printf_specifier)
-        else:
+        if printf_specifier is None:
             # Yay, recursion!
             struct_format = printf_format_for_struct(argtype, types)
             fields.append("\""+name +"\"" + " : " + struct_format)
+        else:
+            fields.append("\""+name +"\"" + " : " + printf_specifier)
     return "{%s}" % ", ".join(fields)
 
 def serialize_argument_at_idx(idx, all_args, accessor, types):
@@ -186,30 +188,30 @@ def serialize_atomic_type(argtype, cast, accessor):
     """ Returns a serialization statement for the given atomic type.
     In case of pointers, values they're referencing will be used instead
     (see `dereference_type()` for exceptions). """
-    # Do we need to dereference this argument and copy it to the userspace?
     if dereference_type(argtype) == argtype:
         # Nope: it's a value type
-        return "(%s)(%s)" % (cast, accessor)
-    else:
-        # Yep: it's a reference type
-        real_type = dereference_type(argtype)
-        t = (accessor, cast, real_type, accessor, real_type)
-        return "!!(%s) ? (%s)0 : *(%s *)copyin((uint64_t)%s, sizeof(%s))" % t
+        return f"({cast})({accessor})"
+    # Yep: it's a reference type
+    real_type = dereference_type(argtype)
+    t = (accessor, cast, real_type, accessor, real_type)
+    return "!!(%s) ? (%s)0 : *(%s *)copyin((uint64_t)%s, sizeof(%s))" % t
 
 def serialize_struct_type(struct_type, accessor, types):
     """ Returns a serialization statement for the given structure type. """
-    fields = []
     if struct_type == dereference_type(struct_type):
         memeber_operator = "."
     else:
         memeber_operator = "->"
     structure = type_description(struct_type, types)["struct"]
-    for (field_name, field_type) in structure.iteritems():
-        fields.append(serialize_type(
+    fields = [
+        serialize_type(
             field_type,
-            "((%s)(%s))" % (struct_type, accessor) + memeber_operator + field_name,
-            types
-        ))
+            f"(({struct_type})({accessor}))" + memeber_operator + field_name,
+            types,
+        )
+        for field_name, field_type in structure.iteritems()
+    ]
+
     return ", ".join(fields)
 
 def serialize_type_with_template(oftype, accessor, types):
@@ -245,10 +247,12 @@ def push_on_stack_section(args):
     if len(args) == 0:
         return ""
     parts = ["self->deeplevel++;"]
-    for idx in xrange(len(args)):
-        parts.append(
-            """self->arguments_stack[self->deeplevel, \"arg%d\"] = self->arg%d;\n\tself->arg%d = arg%d;""" % (idx, idx, idx, idx)
-        )
+    parts.extend(
+        """self->arguments_stack[self->deeplevel, \"arg%d\"] = self->arg%d;\n\tself->arg%d = arg%d;"""
+        % (idx, idx, idx, idx)
+        for idx in xrange(len(args))
+    )
+
     return "\n\t".join(parts)
 
 
@@ -257,10 +261,13 @@ def pop_from_stack_section(args):
     a return PID dtrace probe. """
     if len(args) == 0:
         return ""
-    parts = []
-    for idx in xrange(len(args)):
-        parts.append("""self->arg%d = self->arguments_stack[self->deeplevel, \"arg%d\"];
-\tself->arguments_stack[self->deeplevel, \"arg%d\"] = 0;""" % (idx, idx, idx))
+    parts = [
+        """self->arg%d = self->arguments_stack[self->deeplevel, \"arg%d\"];
+\tself->arguments_stack[self->deeplevel, \"arg%d\"] = 0;"""
+        % (idx, idx, idx)
+        for idx in xrange(len(args))
+    ]
+
     parts.append("--self->deeplevel;")
     return "\n\t" + "\n\t".join(parts)
 

@@ -22,7 +22,7 @@ class Zip(Package):
         password = self.options.get("password")
         files = self._extract(self.target, password)
         if not files or len(files) == 0:
-            raise Exception("Invalid (or empty) zip archive: %s" % self.target)
+            raise Exception(f"Invalid (or empty) zip archive: {self.target}")
         # Look for a file to analyse
         target_name = self.options.get("file")
         if not target_name:
@@ -32,11 +32,7 @@ class Zip(Package):
 
         filepath = path.join(environ.get("TEMP", "/tmp"), target_name)
         # Remove the trailing slash (if any)
-        if filepath.endswith("/"):
-            self.target = filepath[:-1]
-        else:
-            self.target = filepath
-
+        self.target = filepath[:-1] if filepath.endswith("/") else filepath
         # Since we don't know what kind of file we're going to analyse, let's
         # detect it automatically and create an appropriate analysis package
         # for this file
@@ -44,7 +40,10 @@ class Zip(Package):
         pkg_class = choose_package_class(file_info, target_name)
 
         if not pkg_class:
-            raise Exception("Unable to detect analysis package for the file %s" % target_name)
+            raise Exception(
+                f"Unable to detect analysis package for the file {target_name}"
+            )
+
         else:
             log.debug("Analysing file \"%s\" using package \"%s\"", target_name, pkg_class.__name__)
 
@@ -73,12 +72,11 @@ class Zip(Package):
                 archive.extractall(path=extract_path, pwd=password)
             except BadZipfile:
                 raise Exception("Invalid Zip file")
-            # Try to extract it again, but with a default password
             except RuntimeError:
                 try:
                     archive.extractall(path=extract_path, pwd="infected")
                 except RuntimeError as err:
-                    raise Exception("Unable to extract Zip file: %s" % err)
+                    raise Exception(f"Unable to extract Zip file: {err}")
             finally:
                 self._extract_nested_archives(archive, extract_path, password)
         return archive.namelist()

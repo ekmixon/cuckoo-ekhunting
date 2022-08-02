@@ -131,12 +131,7 @@ def resolve_gevent_real(name):
 
 # choose resolver automatically
 def resolve(name):
-    if HAVE_CARES:
-        return resolve_cares(name)
-    # elif HAVE_GEVENT:
-    #    return resolve_gevent(name)
-    else:
-        return resolve_thread(name)
+    return resolve_cares(name) if HAVE_CARES else resolve_thread(name)
 
 # another alias
 resolve_best = resolve

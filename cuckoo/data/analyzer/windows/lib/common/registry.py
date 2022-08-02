@@ -71,8 +71,7 @@ def rename_regkey(skey, ssubkey, dsubkey):
         us.Length = bsize
         us.MaximumLength = bsize
 
-        res = NtRenameKey(res_handle, pointer(us))
-        if res:
+        if res := NtRenameKey(res_handle, pointer(us)):
             log.warning("Error renaming %s\\%s to %s (0x%x)",
                         skey, ssubkey, dsubkey, res % 2**32)
 

@@ -38,21 +38,17 @@ def default_converter_32bit(v):
         return v % 2**32
 
     # Try to avoid various unicode issues through usage of latin-1 encoding.
-    if isinstance(v, str):
-        return v.decode("latin-1")
-    return v
+    return v.decode("latin-1") if isinstance(v, str) else v
 
 def default_converter_64bit(v):
-    # Don't convert signed 64-bit integers into unsigned 64-bit integers as
-    # MongoDB doesn't support 64-bit unsigned integers (and ElasticSearch
-    # probably doesn't either).
-    # if isinstance(v, (int, long)) and v < 0:
-        # return v % 2**64
+# Don't convert signed 64-bit integers into unsigned 64-bit integers as
+# MongoDB doesn't support 64-bit unsigned integers (and ElasticSearch
+# probably doesn't either).
+# if isinstance(v, (int, long)) and v < 0:
+    # return v % 2**64
 
     # Try to avoid various unicode issues through usage of latin-1 encoding.
-    if isinstance(v, str):
-        return v.decode("latin-1")
-    return v
+    return v.decode("latin-1") if isinstance(v, str) else v
 
 class BsonParser(object):
     """Interprets .bson logs from the monitor.
@@ -243,9 +239,10 @@ class BsonParser(object):
                     )
                     continue
 
-                argdict = {}
-                for idx, value in enumerate(args):
-                    argdict[argnames[idx]] = converters[idx](value)
+                argdict = {
+                    argnames[idx]: converters[idx](value)
+                    for idx, value in enumerate(args)
+                }
 
                 # Special new process message from the monitor.
                 if apiname == "__process__":

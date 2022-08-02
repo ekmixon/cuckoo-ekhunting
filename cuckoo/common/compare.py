@@ -31,7 +31,7 @@ def combine_behavior_percentages(stats):
         for cat in cats:
             sums[tid][cat] = sum(j.get(cat, 0) for j in stats[tid].values())
 
-    totals = dict((k, sum(v.values())) for k, v in sums.items())
+    totals = {k: sum(v.values()) for k, v in sums.items()}
 
     percentages = {}
     for tid in stats:
@@ -50,17 +50,17 @@ def iter_task_process_logfiles(tid):
         yield (pid, fpath)
 
 def helper_percentages_storage(tid1, tid2):
-    counts = {}
+    # ppl = ParseProcessLog(fpath)
+    # category_counts = behavior_categories_percent(ppl.calls)
+    category_counts = None
 
-    for tid in [tid1, tid2]:
-        counts[tid] = {}
-
-        for pid, fpath in iter_task_process_logfiles(tid):
-            # ppl = ParseProcessLog(fpath)
-            # category_counts = behavior_categories_percent(ppl.calls)
-            category_counts = None
-
-            counts[tid][pid] = category_counts
+    counts = {
+        tid: {
+            pid: category_counts
+            for pid, fpath in iter_task_process_logfiles(tid)
+        }
+        for tid in [tid1, tid2]
+    }
 
     return combine_behavior_percentages(counts)
 

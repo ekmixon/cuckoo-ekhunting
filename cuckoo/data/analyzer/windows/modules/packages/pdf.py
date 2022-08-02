@@ -60,11 +60,10 @@ class PDF(Package):
 
         # Enforce the .pdf file extension.
         if not path.endswith(".pdf"):
-            os.rename(path, path + ".pdf")
+            os.rename(path, f"{path}.pdf")
             path += ".pdf"
             log.info("Submitted file is missing extension, added .pdf")
 
         return self.execute(
-            reader, args=[path], maximize=True, mode="pdf",
-            trigger="file:%s" % path
+            reader, args=[path], maximize=True, mode="pdf", trigger=f"file:{path}"
         )

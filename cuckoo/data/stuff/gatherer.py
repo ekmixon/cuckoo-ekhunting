@@ -42,7 +42,7 @@ system32 = [
 ]
 
 def report(filepath):
-    buf = "FILE_NEW:%s" % filepath
+    buf = f"FILE_NEW:{filepath}"
     out = ctypes.create_string_buffer(512)
     value = ctypes.c_uint()
 
@@ -55,12 +55,20 @@ if __name__ == "__main__":
     filepaths = []
 
     for filepath in progfiles:
-        filepaths.append(os.path.join("C:\\Program Files", filepath))
-        filepaths.append(os.path.join("C:\\Program Files (x86)", filepath))
+        filepaths.extend(
+            (
+                os.path.join("C:\\Program Files", filepath),
+                os.path.join("C:\\Program Files (x86)", filepath),
+            )
+        )
 
     for filepath in system32:
-        filepaths.append(os.path.join("C:\\Windows\\System32", filepath))
-        filepaths.append(os.path.join("C:\\Windows\\Sysnative", filepath))
+        filepaths.extend(
+            (
+                os.path.join("C:\\Windows\\System32", filepath),
+                os.path.join("C:\\Windows\\Sysnative", filepath),
+            )
+        )
 
     for filepath in filepaths:
         if os.path.exists(filepath):

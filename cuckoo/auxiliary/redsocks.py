@@ -162,7 +162,7 @@ class Redsocks(Auxiliary):
                 conf += "%s = %s;\n" % (field, value)
             conf += "}\n"
 
-        return Files.temp_named_put(conf, "redsocks-task-%s" % self.task.id)
+        return Files.temp_named_put(conf, f"redsocks-task-{self.task.id}")
 
     def get_tcp_port(self, bind_ip):
         """Bind to the resultserver IP to retrieve an available TCP port"""

@@ -27,14 +27,7 @@ def schedule_time_next(schedule_text):
         day = day_of_week.get(parts[0])
         if day is not None:
             skip_days = 7
-            if day < weekday:
-                # Next week
-                days = (weekday - day) + 1
-            else:
-                # This week
-                days = day - weekday
-                # XXX: check if @time results in past time
-
+            days = (weekday - day) + 1 if day < weekday else day - weekday
             propose += datetime.timedelta(days=days)
         else:
             # Periodic
@@ -49,8 +42,7 @@ def schedule_time_next(schedule_text):
             if propose < now:
                 propose += datetime.timedelta(days=skip_days)
 
-        if propose > now:
-            if best_time is None or propose < best_time:
-                best_time = propose
+        if propose > now and (best_time is None or propose < best_time):
+            best_time = propose
 
     return best_time

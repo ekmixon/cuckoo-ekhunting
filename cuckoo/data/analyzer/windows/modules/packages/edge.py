@@ -56,9 +56,9 @@ class Edge(Package):
         cmd_path = self.get_path("cmd.exe")
         all_pids = set()
 
-        for url in urls:
-            edge = "shell:AppsFolder\Microsoft.MicrosoftEdge_" \
+        edge = "shell:AppsFolder\Microsoft.MicrosoftEdge_" \
                    "8wekyb3d8bbwe!MicrosoftEdge"
+        for url in urls:
             args = ["/c", "start", edge, "-private", url]
             self.execute(cmd_path, args=args)
             time.sleep(0.5)

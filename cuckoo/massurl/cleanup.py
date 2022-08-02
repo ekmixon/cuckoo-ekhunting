@@ -29,7 +29,7 @@ def clean_tasks(dt):
             return
 
         log.debug("Deleting %s tasks", len(tasks))
-        tasks = set(task.id for task in tasks)
+        tasks = {task.id for task in tasks}
         db.db.engine.execute(
             URLGroupTask.__table__.delete().where(
                 URLGroupTask.task_id.in_(tasks)
@@ -49,7 +49,7 @@ def clean_tasks(dt):
             dump_path = cwd("dump.pcap", analysis=task_id)
             if not os.path.isfile(dump_path):
                 continue
-            new_path = os.path.join(pcaps, "%s.pcap" % task_id)
+            new_path = os.path.join(pcaps, f"{task_id}.pcap")
             if os.path.isfile(new_path):
                 continue
 
@@ -85,24 +85,21 @@ def clean():
     if not config("massurl:retention:enabled"):
         return
 
-    alert_days = config("massurl:retention:alerts")
-    if alert_days:
+    if alert_days := config("massurl:retention:alerts"):
         before = datetime.datetime.utcnow() - datetime.timedelta(
             days=alert_days
         )
         log.debug("Removing alerts older than %s", before)
         db.delete_alert(before=before)
 
-    task_days = config("massurl:retention:tasks")
-    if task_days:
+    if task_days := config("massurl:retention:tasks"):
         before = datetime.datetime.utcnow() - datetime.timedelta(
             days=task_days
         )
         log.debug("Removing tasks older than %s", before)
         clean_tasks(before)
 
-    diary_days = config("massurl:retention:urldiaries")
-    if diary_days:
+    if diary_days := config("massurl:retention:urldiaries"):
         before = datetime.datetime.utcnow() - datetime.timedelta(
             days=diary_days
         )

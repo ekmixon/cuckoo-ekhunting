@@ -199,8 +199,7 @@ class File(Hashable):
         """Get file name.
         @return: file name.
         """
-        file_name = os.path.basename(self.file_path)
-        return file_name
+        return os.path.basename(self.file_path)
 
     def valid(self):
         return os.path.exists(self.file_path) and \
@@ -218,10 +217,10 @@ class File(Hashable):
 
         with open(self.file_path, "rb") as fd:
             while True:
-                chunk = fd.read(FILE_CHUNK_SIZE)
-                if not chunk:
+                if chunk := fd.read(FILE_CHUNK_SIZE):
+                    yield chunk
+                else:
                     break
-                yield chunk
 
     @property
     def file_data(self):
@@ -309,8 +308,7 @@ class File(Hashable):
                             "will probably fail.")
                 return "", ""
 
-            main_activity = a.get_main_activity()
-            if main_activity:
+            if main_activity := a.get_main_activity():
                 log.debug("Picked package %s and main activity %s.",
                           package, main_activity)
                 return package, main_activity
@@ -366,7 +364,7 @@ class File(Hashable):
             meta = {
                 "description": "(no description)",
             }
-            meta.update(match.meta)
+            meta |= match.meta
 
             results.append({
                 "name": match.rule,
@@ -422,8 +420,7 @@ class File(Hashable):
         """Get all information available.
         @return: information dict.
         """
-        infos = {}
-        infos["name"] = self.get_name()
+        infos = {"name": self.get_name()}
         infos["path"] = self.file_path
         infos["size"] = self.get_size()
         infos["crc32"] = self.get_crc32()
@@ -443,7 +440,7 @@ class File(Hashable):
             return open(self.file_path, "rb").read()
         except (IOError, OSError) as e:
             raise CuckooOperationalError(
-                "Error reading file %s. Error: %s" % (self.file_path, e)
+                f"Error reading file {self.file_path}. Error: {e}"
             )
 
     def get_filepointer(self, mode="rb"):
@@ -452,7 +449,7 @@ class File(Hashable):
             return open(self.file_path, mode)
         except (IOError, OSError) as e:
             raise CuckooOperationalError(
-                "Error opening file %s. Error: %s" % (self.file_path, e)
+                f"Error opening file {self.file_path}. Error: {e}"
             )
 
 class Archive(object):
@@ -473,8 +470,11 @@ class Buffer(object):
 
     def get_yara_quick(self, category, externals=None):
         results, rule = [], File.yara_rules[category]
-        for match in rule.match(data=self.buffer, externals=externals):
-            results.append(match.rule)
+        results.extend(
+            match.rule
+            for match in rule.match(data=self.buffer, externals=externals)
+        )
+
         return results
 
 class YaraMatch(object):
@@ -485,19 +485,14 @@ class YaraMatch(object):
         self.offsets = match["offsets"]
         self.category = category
 
-        self._strings = []
-        for s in match["strings"]:
-            self._strings.append(s.decode("base64"))
+        self._strings = [s.decode("base64") for s in match["strings"]]
 
     def string(self, identifier, index=0):
         off, idx = self.offsets[identifier][index]
         return self._strings[idx]
 
     def strings(self, identifier):
-        ret = []
-        for off, idx in self.offsets[identifier]:
-            ret.append(self._strings[idx])
-        return ret
+        return [self._strings[idx] for off, idx in self.offsets[identifier]]
 
 class ExtractedMatch(object):
     def __init__(self, match):
@@ -506,10 +501,7 @@ class ExtractedMatch(object):
         self.first_seen = match.get("first_seen")
         self.pid = match.get("pid")
 
-        self.yara = []
-        for ym in match["yara"]:
-            self.yara.append(YaraMatch(ym))
-
+        self.yara = [YaraMatch(ym) for ym in match["yara"]]
         # Raw payload.
         self.raw = match.get("raw")
         self.info = match["info"]

@@ -116,17 +116,16 @@ class XenServer(Machinery):
             ref = self._get_vm_ref(uuid)
             vm = self._get_vm_record(ref)
         except XenAPI.Failure as e:
-            raise CuckooMachineError("Vm not found: %s: %s"
-                                     % (uuid, e.details[0]))
+            raise CuckooMachineError(f"Vm not found: {uuid}: {e.details[0]}")
 
         if vm["is_a_snapshot"]:
-            raise CuckooMachineError("Vm is a snapshot: %s" % uuid)
+            raise CuckooMachineError(f"Vm is a snapshot: {uuid}")
 
         if vm["is_a_template"]:
-            raise CuckooMachineError("Vm is a template: %s" % uuid)
+            raise CuckooMachineError(f"Vm is a template: {uuid}")
 
         if vm["is_control_domain"]:
-            raise CuckooMachineError("Vm is a control domain: %s" % uuid)
+            raise CuckooMachineError(f"Vm is a control domain: {uuid}")
 
         return (ref, vm)
 
@@ -140,15 +139,15 @@ class XenServer(Machinery):
             snapshot_ref = self._get_vm_ref(snapshot_uuid)
             snapshot = self._get_vm_record(snapshot_ref)
         except:
-            raise CuckooMachineError("Snapshot not found: %s" % snapshot_uuid)
+            raise CuckooMachineError(f"Snapshot not found: {snapshot_uuid}")
 
         if not snapshot["is_a_snapshot"]:
-            raise CuckooMachineError("Invalid snapshot: %s" % snapshot_uuid)
+            raise CuckooMachineError(f"Invalid snapshot: {snapshot_uuid}")
 
         try:
             parent = self._get_vm_record(snapshot["snapshot_of"])
         except:
-            raise CuckooMachineError("Invalid snapshot: %s" % snapshot_uuid)
+            raise CuckooMachineError(f"Invalid snapshot: {snapshot_uuid}")
 
         parent_uuid = parent["uuid"]
         if parent_uuid != vm_uuid:
@@ -206,30 +205,26 @@ class XenServer(Machinery):
         if not self._is_halted(vm):
             raise CuckooMachineError("Vm is already running: %s", label)
 
-        snapshot = self._snapshot_from_vm_uuid(label)
-        if snapshot:
+        if snapshot := self._snapshot_from_vm_uuid(label):
             snapshot_ref = self._get_vm_ref(snapshot)
             try:
                 log.debug("Reverting vm %s to snapshot %s", label, snapshot)
                 self.session.xenapi.VM.revert(snapshot_ref)
                 log.debug("Revert completed for vm %s", label)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to revert vm %s: %s"
-                                         % (label, e.details[0]))
+                raise CuckooMachineError(f"Unable to revert vm {label}: {e.details[0]}")
 
             try:
                 log.debug("Resuming reverted vm %s", label)
                 self.session.xenapi.VM.resume(vm_ref, False, False)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to resume vm %s: %s"
-                                         % (label, e.details[0]))
+                raise CuckooMachineError(f"Unable to resume vm {label}: {e.details[0]}")
         else:
             log.debug("No snapshot found for vm, booting: %s", label)
             try:
                 self.session.xenapi.VM.start(vm_ref, False, False)
             except XenAPI.Failure as e:
-                raise CuckooMachineError("Unable to start vm %s: %s"
-                                         % (label, e.details[0]))
+                raise CuckooMachineError(f"Unable to start vm {label}: {e.details[0]}")
 
         log.debug("Started vm: %s", label)
 
@@ -268,5 +263,4 @@ class XenServer(Machinery):
         @return: status string.
         """
         ref = self._get_vm_ref(label)
-        state = self._get_vm_power_state(ref)
-        return state
+        return self._get_vm_power_state(ref)

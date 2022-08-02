@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 def spCreateProcessW(application_name, command_line, process_attributes,
                      thread_attributes, inherit_handles, creation_flags,
                      environment, current_directory, startup_info):
+
     class STARTUPINFO(Structure):
         _fields_ = [
             ("cb", c_uint),
@@ -56,9 +57,11 @@ def spCreateProcessW(application_name, command_line, process_attributes,
             KERNEL32.CloseHandle(self)
 
     if environment:
-        environment = "\x00".join(
-            "%s=%s" % (k, v) for k, v in environment.items()
-        ) + "\x00\x00"
+        environment = (
+            "\x00".join(f"{k}={v}" for k, v in environment.items())
+            + "\x00\x00"
+        )
+
 
     si = STARTUPINFO()
     si.cb = sizeof(STARTUPINFO)
@@ -74,18 +77,25 @@ def spCreateProcessW(application_name, command_line, process_attributes,
 
     pi = PROCESS_INFORMATION()
 
-    result = KERNEL32.CreateProcessW(
-        application_name, command_line, None, None, inherit_handles,
-        creation_flags, environment, current_directory, byref(si), byref(pi)
-    )
-    if not result:
+    if result := KERNEL32.CreateProcessW(
+        application_name,
+        command_line,
+        None,
+        None,
+        inherit_handles,
+        creation_flags,
+        environment,
+        current_directory,
+        byref(si),
+        byref(pi),
+    ):
+        return (
+            Handle(pi.process_handle), Handle(pi.thread_handle),
+            pi.process_identifier, pi.thread_identifier
+        )
+    else:
         # TODO We'll just assume this is correct for now.
         raise WindowsError(KERNEL32.GetLastError())
-
-    return (
-        Handle(pi.process_handle), Handle(pi.thread_handle),
-        pi.process_identifier, pi.thread_identifier
-    )
 
 # We patch Python 2.7's native .CreateProcess method to be unicode-aware.
 subprocess._subprocess.CreateProcess = spCreateProcessW
@@ -252,26 +262,22 @@ class Process(object):
         is32bit_exe = os.path.join("bin", "is32bit.exe")
 
         if pid:
-            args = [is32bit_exe, "-p", "%s" % pid]
+            args = [is32bit_exe, "-p", f"{pid}"]
         elif process_name:
             args = [is32bit_exe, "-n", process_name]
 
-        # If we're running a 32-bit Python in a 64-bit Windows system and the
-        # path points to System32, then we hardcode it as being a 64-bit
-        # binary. (To be fair, a 64-bit Python on 64-bit Windows would also
-        # make the System32 binary 64-bit).
         elif os.path.isdir("C:\\Windows\\Sysnative") and \
-                path.lower().startswith("c:\\windows\\system32"):
+                    path.lower().startswith("c:\\windows\\system32"):
             return False
         elif not os.path.exists(path):
-            raise CuckooError("File not found: %s" % path)
+            raise CuckooError(f"File not found: {path}")
         else:
             args = [is32bit_exe, "-f", path]
 
         try:
             bitsize = int(subprocess_checkoutput(args))
         except subprocess.CalledProcessError as e:
-            raise CuckooError("Error returned by is32bit: %s" % e.output)
+            raise CuckooError(f"Error returned by is32bit: {e.output}")
 
         return bitsize == 32
 
@@ -327,7 +333,7 @@ class Process(object):
 
         if source:
             if isinstance(source, (int, long)) or source.isdigit():
-                argv += ["--from", "%s" % source]
+                argv += ["--from", f"{source}"]
             else:
                 argv += ["--from-process", source]
 
@@ -353,11 +359,7 @@ class Process(object):
         is32bit = self.is32bit(self.pid)
 
         if not dll:
-            if is32bit:
-                dll = "monitor-x86.dll"
-            else:
-                dll = "monitor-x64.dll"
-
+            dll = "monitor-x86.dll" if is32bit else "monitor-x64.dll"
         dllpath = os.path.abspath(os.path.join("bin", dll))
 
         if not os.path.exists(dllpath):
@@ -373,9 +375,12 @@ class Process(object):
         argv = [
             inject_exe,
             "--resume-thread",
-            "--pid", "%s" % self.pid,
-            "--tid", "%s" % self.tid,
+            "--pid",
+            f"{self.pid}",
+            "--tid",
+            f"{self.tid}",
         ]
+
 
         if free:
             argv.append("--free")
@@ -440,11 +445,7 @@ class Process(object):
             is32bit = self.is32bit(pid=self.pid)
 
         if not dll:
-            if is32bit:
-                dll = "monitor-x86.dll"
-            else:
-                dll = "monitor-x64.dll"
-
+            dll = "monitor-x86.dll" if is32bit else "monitor-x64.dll"
         dllpath = os.path.abspath(os.path.join("bin", dll))
         if not os.path.exists(dllpath):
             log.warning("No valid DLL specified to be injected in process "
@@ -464,15 +465,11 @@ class Process(object):
         ]
 
         if self.pid:
-            args += ["--pid", "%s" % self.pid]
+            args += ["--pid", f"{self.pid}"]
         elif self.process_name:
             args += ["--process-name", self.process_name]
 
-        if apc:
-            args += ["--apc", "--tid", "%s" % self.tid]
-        else:
-            args += ["--crt"]
-
+        args += ["--apc", "--tid", f"{self.tid}"] if apc else ["--crt"]
         try:
             subprocess_checkcall(args)
         except Exception:
@@ -543,19 +540,11 @@ class Process(object):
         dump_path = tempfile.mktemp()
 
         try:
-            args = [
-                inject_exe,
-                "--pid", "%s" % self.pid,
-                "--dump", dump_path,
-            ]
+            args = [inject_exe, "--pid", f"{self.pid}", "--dump", dump_path]
 
             # Restrict to a certain memory block.
             if addr and length:
-                args += [
-                    "--dump-block",
-                    "0x%x" % addr,
-                    "%s" % length,
-                ]
+                args += ["--dump-block", "0x%x" % addr, f"{length}"]
 
             subprocess_checkcall(args)
         except subprocess.CalledProcessError:
@@ -573,7 +562,7 @@ class Process(object):
                 "memory", "block-%s-0x%x-%s.dmp" % (self.pid, addr, idx)
             )
         else:
-            file_name = os.path.join("memory", "%s-%s.dmp" % (self.pid, idx))
+            file_name = os.path.join("memory", f"{self.pid}-{idx}.dmp")
 
         upload_to_host(dump_path, file_name)
         os.unlink(dump_path)

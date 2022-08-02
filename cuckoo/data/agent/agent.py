@@ -91,8 +91,9 @@ class MiniHTTPServer(object):
     def route(self, path, methods=["GET"]):
         def register(fn):
             for method in methods:
-                self.routes[method].append((re.compile(path + "$"), fn))
+                self.routes[method].append((re.compile(f"{path}$"), fn))
             return fn
+
         return register
 
     def handle(self, obj):
@@ -158,11 +159,10 @@ class send_file(object):
 
         with open(self.path, "rb") as f:
             while True:
-                buf = f.read(1024 * 1024)
-                if not buf:
+                if buf := f.read(1024 * 1024):
+                    sock.write(buf)
+                else:
                     break
-
-                sock.write(buf)
 
     def headers(self, obj):
         obj.send_header("Content-Length", self.length)

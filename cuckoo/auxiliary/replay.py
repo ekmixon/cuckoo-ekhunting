@@ -90,12 +90,14 @@ class Replay(Auxiliary):
         # TODO Better access to self.machine and its related fields.
         machinery = config("cuckoo:cuckoo:machinery")
         rooter(
-            "inetsim_enable", self.machine.ip,
+            "inetsim_enable",
+            self.machine.ip,
             config("cuckoo:resultserver:ip"),
-            config("%s:%s:interface" % (machinery, machinery)),
+            config(f"{machinery}:{machinery}:interface"),
             str(config("cuckoo:resultserver:port")),
-            "80:%d 443:%d" % (self.port, self.port)
+            "80:%d 443:%d" % (self.port, self.port),
         )
+
 
         args = [
             mitmdump, "-S", mitmpath,
@@ -126,12 +128,14 @@ class Replay(Auxiliary):
     def stop(self):
         machinery = config("cuckoo:cuckoo:machinery")
         self.port and rooter(
-            "inetsim_disable", self.machine.ip,
+            "inetsim_disable",
+            self.machine.ip,
             config("cuckoo:resultserver:ip"),
-            config("%s:%s:interface" % (machinery, machinery)),
+            config(f"{machinery}:{machinery}:interface"),
             str(config("cuckoo:resultserver:port")),
-            "80:%d 443:%d" % (self.port, self.port)
+            "80:%d 443:%d" % (self.port, self.port),
         )
+
 
         if self.proc and not self.proc.poll():
             try:

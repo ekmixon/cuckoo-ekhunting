@@ -24,7 +24,7 @@ class ComDll(Package):
         # and rename it. This is needed for regsvr32 to execute correctly.
         # See ticket #354 for details.
         if ext != ".dll":
-            new_path = path + ".dll"
+            new_path = f"{path}.dll"
             os.rename(path, new_path)
             path = new_path
 

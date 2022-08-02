@@ -19,9 +19,7 @@ def temppath():
 
     # Backwards compatibility with older configuration.
     if not tmppath or tmppath == "/tmp":
-        return os.path.join(
-            tempfile.gettempdir(), "cuckoo-tmp-%s" % getuser()
-        )
+        return os.path.join(tempfile.gettempdir(), f"cuckoo-tmp-{getuser()}")
 
     return tmppath
 
@@ -43,7 +41,7 @@ class Storage(object):
         @return: filename.
         """
         dirpath, filename = ntpath.split(path)
-        return filename if filename else ntpath.basename(dirpath)
+        return filename or ntpath.basename(dirpath)
 
 class Folders(Storage):
     @staticmethod
@@ -71,9 +69,7 @@ class Folders(Storage):
                     if e.errno == errno.EEXIST:
                         # Race condition, ignore
                         continue
-                    raise CuckooOperationalError(
-                        "Unable to create folder: %s" % folder_path
-                    )
+                    raise CuckooOperationalError(f"Unable to create folder: {folder_path}")
 
     @staticmethod
     def copy(src, dest):
@@ -96,9 +92,7 @@ class Folders(Storage):
             try:
                 shutil.rmtree(folder)
             except OSError:
-                raise CuckooOperationalError(
-                    "Unable to delete folder: %s" % folder
-                )
+                raise CuckooOperationalError(f"Unable to delete folder: {folder}")
 
 class Files(Storage):
     @staticmethod
@@ -112,10 +106,8 @@ class Files(Storage):
         )
 
         if hasattr(content, "read"):
-            chunk = content.read(1024)
-            while chunk:
+            while chunk := content.read(1024):
                 os.write(fd, chunk)
-                chunk = content.read(1024)
         else:
             os.write(fd, content)
 
@@ -143,10 +135,8 @@ class Files(Storage):
         filepath = os.path.join(root, filename)
         with open(filepath, "wb") as f:
             if hasattr(content, "read"):
-                chunk = content.read(1024 * 1024)
-                while chunk:
+                while chunk := content.read(1024 * 1024):
                     f.write(chunk)
-                    chunk = content.read(1024 * 1024)
             else:
                 f.write(content)
         return filepath
@@ -171,10 +161,10 @@ class Files(Storage):
         f = open(filepath, "rb")
         h = method()
         while True:
-            buf = f.read(1024 * 1024)
-            if not buf:
+            if buf := f.read(1024 * 1024):
+                h.update(buf)
+            else:
                 break
-            h.update(buf)
         return h.hexdigest()
 
     @staticmethod

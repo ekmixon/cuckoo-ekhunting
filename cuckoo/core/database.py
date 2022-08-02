@@ -125,16 +125,11 @@ class Machine(Base):
 
     @hybrid_property
     def rcparams(self):
-        if not self._rcparams:
-            return {}
-        return parse_options(self._rcparams)
+        return parse_options(self._rcparams) if self._rcparams else {}
 
     @rcparams.setter
     def rcparams(self, value):
-        if isinstance(value, dict):
-            self._rcparams = emit_options(value)
-        else:
-            self._rcparams = value
+        self._rcparams = emit_options(value) if isinstance(value, dict) else value
 
     def to_dict(self):
         """Converts object to dict.
@@ -199,10 +194,10 @@ class Tag(Base):
         """Converts object to dict.
         @return: dict
         """
-        d = {}
-        for column in self.__table__.columns:
-            d[column.name] = getattr(self, column.name)
-        return d
+        return {
+            column.name: getattr(self, column.name)
+            for column in self.__table__.columns
+        }
 
 class Submit(Base):
     """Submitted files details."""
@@ -292,11 +287,11 @@ class Target(Base):
         """Converts object to dict.
         @return: dict
         """
-        d = {}
-        for column in self.__table__.columns:
-            if column.name not in exclude:
-                d[column.name] = getattr(self, column.name)
-        return d
+        return {
+            column.name: getattr(self, column.name)
+            for column in self.__table__.columns
+            if column.name not in exclude
+        }
 
     def to_json(self):
         """Converts object to JSON.
@@ -333,10 +328,10 @@ class Error(Base):
         """Converts object to dict.
         @return: dict
         """
-        d = {}
-        for column in self.__table__.columns:
-            d[column.name] = getattr(self, column.name)
-        return d
+        return {
+            column.name: getattr(self, column.name)
+            for column in self.__table__.columns
+        }
 
     def to_json(self):
         """Converts object to JSON.
@@ -409,16 +404,11 @@ class Task(Base):
 
     @hybrid_property
     def options(self):
-        if not self._options:
-            return {}
-        return parse_options(self._options)
+        return parse_options(self._options) if self._options else {}
 
     @options.setter
     def options(self, value):
-        if isinstance(value, dict):
-            self._options = emit_options(value)
-        else:
-            self._options = value
+        self._options = emit_options(value) if isinstance(value, dict) else value
 
     def to_dict(self, dt=False):
         """Converts object to dict.
@@ -511,7 +501,7 @@ class Database(object):
         if not dsn:
             dsn = config("cuckoo:database:connection")
         if not dsn:
-            dsn = "sqlite:///%s" % cwd("cuckoo.db")
+            dsn = f'sqlite:///{cwd("cuckoo.db")}'
 
         database_flavor = dsn.split(":", 1)[0].lower()
         if database_flavor == "sqlite":
@@ -537,9 +527,7 @@ class Database(object):
         try:
             Base.metadata.create_all(self.engine)
         except SQLAlchemyError as e:
-            raise CuckooDatabaseError(
-                "Unable to create or connect to database: %s" % e
-            )
+            raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
 
         # Deal with schema versioning.
         # TODO: it's a little bit dirty, needs refactoring.
@@ -550,10 +538,7 @@ class Database(object):
             try:
                 tmp_session.commit()
             except SQLAlchemyError as e:
-                raise CuckooDatabaseError(
-                    "Unable to set schema version: %s" % e
-                )
-                tmp_session.rollback()
+                raise CuckooDatabaseError(f"Unable to set schema version: {e}")
             finally:
                 tmp_session.close()
         else:
@@ -619,7 +604,7 @@ class Database(object):
                 )
 
             raise CuckooDependencyError(
-                "Missing unknown database driver, unable to import %s" % lib
+                f"Missing unknown database driver, unable to import {lib}"
             )
 
     def get_or_create(self, session, model=Tag, **kwargs):
@@ -644,9 +629,7 @@ class Database(object):
                 self.engine, tables=reversed(meta.sorted_tables)
             )
         except SQLAlchemyError as e:
-            raise CuckooDatabaseError(
-                "Unable to drop all tables of the database: %s" % e
-            )
+            raise CuckooDatabaseError(f"Unable to drop all tables of the database: {e}")
 
     @classlock
     def clean_machines(self):
@@ -770,9 +753,7 @@ class Database(object):
         try:
             machine = session.query(Machine).filter_by(name=label).first()
             if not machine:
-                raise CuckooDatabaseError(
-                    "Tried to reserve non-existent machine %s" % label
-                )
+                raise CuckooDatabaseError(f"Tried to reserve non-existent machine {label}")
 
             machine.reserved_by = task_id
             session.commit()
@@ -853,9 +834,7 @@ class Database(object):
             if exclude:
                 q = q.filter(~Task.id.in_(exclude))
 
-            row = q.order_by(Task.priority.desc(), Task.added_on).first()
-
-            return row
+            return q.order_by(Task.priority.desc(), Task.added_on).first()
         except SQLAlchemyError as e:
             log.exception("Database error fetching task: %s", e)
             session.rollback()
@@ -869,14 +848,15 @@ class Database(object):
         """
         session = self.Session()
         try:
-            if locked:
-                machines = session.query(Machine).options(
-                    joinedload("tags")
-                ).filter_by(locked=True).all()
-            else:
-                machines = session.query(Machine).options(
-                    joinedload("tags")).all()
-            return machines
+            return (
+                session.query(Machine)
+                .options(joinedload("tags"))
+                .filter_by(locked=True)
+                .all()
+                if locked
+                else session.query(Machine).options(joinedload("tags")).all()
+            )
+
         except SQLAlchemyError as e:
             log.exception("Database error listing machines: %s", e)
             return []
@@ -980,10 +960,8 @@ class Database(object):
         """
         session = self.Session()
         try:
-            machines_count = session.query(Machine).filter_by(
-                locked=False
-            ).count()
-            return machines_count
+            return session.query(Machine).filter_by(locked=False).count()
+
         except SQLAlchemyError as e:
             log.exception("Database error counting machines: %s", e)
             return 0
@@ -997,10 +975,13 @@ class Database(object):
         """
         session = self.Session()
         try:
-            machines = session.query(Machine).options(
-                joinedload("tags")
-            ).filter_by(locked=False).all()
-            return machines
+            return (
+                session.query(Machine)
+                .options(joinedload("tags"))
+                .filter_by(locked=False)
+                .all()
+            )
+
         except SQLAlchemyError as e:
             log.exception("Database error getting available machines: %s", e)
             return []
@@ -1143,8 +1124,7 @@ class Database(object):
                 if value is None:
                     continue
 
-                op = op_lookup.get(operation)
-                if op:
+                if op := op_lookup.get(operation):
                     search = search.filter(op(
                         self.task_columns[field], value)
                     )
@@ -1188,7 +1168,7 @@ class Database(object):
             )).first()
 
             if not isinstance(_min, DateTime) or \
-                    not isinstance(_max, DateTime):
+                        not isinstance(_max, DateTime):
                 return
 
             return int(_min[0].strftime("%s")), int(_max[0].strftime("%s"))
@@ -1206,13 +1186,12 @@ class Database(object):
         """
         session = self.Session()
         try:
-            if status:
-                tasks_count = session.query(Task).filter_by(
-                    status=status
-                ).count()
-            else:
-                tasks_count = session.query(Task).count()
-            return tasks_count
+            return (
+                session.query(Task).filter_by(status=status).count()
+                if status
+                else session.query(Task).count()
+            )
+
         except SQLAlchemyError as e:
             log.exception("Database error counting tasks: %s", e)
             return 0

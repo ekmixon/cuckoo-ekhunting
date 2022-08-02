@@ -58,6 +58,5 @@ class PPT(Package):
     def start(self, path):
         powerpoint = self.get_path("Microsoft Office PowerPoint")
         return self.execute(
-            powerpoint, args=["/S", path], mode="office",
-            trigger="file:%s" % path
+            powerpoint, args=["/S", path], mode="office", trigger=f"file:{path}"
         )

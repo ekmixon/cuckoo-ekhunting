@@ -53,7 +53,7 @@ class VMware(Machinery):
                                      "ending with .vmx: %s)" % vmx_path)
 
         if not os.path.exists(vmx_path):
-            raise CuckooMachineError("Vm file %s not found" % vmx_path)
+            raise CuckooMachineError(f"Vm file {vmx_path} not found")
 
     def _check_snapshot(self, vmx_path, snapshot):
         """Checks snapshot existance.
@@ -90,14 +90,13 @@ class VMware(Machinery):
 
         # Preventive check
         if self._is_running(vmx_path):
-            raise CuckooMachineError("Machine %s is already running" %
-                                     vmx_path)
+            raise CuckooMachineError(f"Machine {vmx_path} is already running")
 
         self._revert(vmx_path, snapshot)
 
         time.sleep(3)
 
-        log.debug("Starting vm %s" % vmx_path)
+        log.debug(f"Starting vm {vmx_path}")
         try:
             p = subprocess.Popen([self.options.vmware.path,
                                   "start", vmx_path,
@@ -119,7 +118,7 @@ class VMware(Machinery):
         @param vmx_path: path to vmx file
         @raise CuckooMachineError: if unable to stop.
         """
-        log.debug("Stopping vm %s" % vmx_path)
+        log.debug(f"Stopping vm {vmx_path}")
         if self._is_running(vmx_path):
             try:
                 if subprocess.call([self.options.vmware.path,
@@ -141,7 +140,7 @@ class VMware(Machinery):
         @param snapshot: snapshot name
         @raise CuckooMachineError: if unable to revert
         """
-        log.debug("Revert snapshot for vm %s" % vmx_path)
+        log.debug(f"Revert snapshot for vm {vmx_path}")
         try:
             if subprocess.call([self.options.vmware.path,
                                 "revertToSnapshot", vmx_path, snapshot],
@@ -193,7 +192,10 @@ class VMware(Machinery):
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
         except OSError as e:
-            raise CuckooMachineError("vmrun failed to take a memory dump of the machine with label %s: %s" % (vmx_path, e))
+            raise CuckooMachineError(
+                f"vmrun failed to take a memory dump of the machine with label {vmx_path}: {e}"
+            )
+
 
         vmwarepath, _ = os.path.split(vmx_path)
         latestvmem = max(glob.iglob(os.path.join(vmwarepath, "*.vmem")),
@@ -210,6 +212,9 @@ class VMware(Machinery):
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
         except OSError as e:
-            raise CuckooMachineError("vmrun failed to delete the temporary snapshot in %s: %s" % (vmx_path, e))
+            raise CuckooMachineError(
+                f"vmrun failed to delete the temporary snapshot in {vmx_path}: {e}"
+            )
+
 
         log.info("Successfully generated memory dump for virtual machine with label %s ", vmx_path)

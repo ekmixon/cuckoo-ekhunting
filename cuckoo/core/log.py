@@ -46,11 +46,10 @@ class TaskHandler(logging.Handler):
     """
 
     def emit(self, record):
-        task = _tasks.get(task_key())
-        if not task:
+        if task := _tasks.get(task_key()):
+            task[1].write("%s\n" % self.format(record))
+        else:
             return
-
-        task[1].write("%s\n" % self.format(record))
 
 class ConsoleHandler(logging.StreamHandler):
     """Logging to console handler."""
@@ -60,13 +59,12 @@ class ConsoleHandler(logging.StreamHandler):
 
         if record.levelname == "WARNING":
             colored.msg = yellow(record.msg)
-        elif record.levelname == "ERROR" or record.levelname == "CRITICAL":
+        elif record.levelname in ["ERROR", "CRITICAL"]:
             colored.msg = red(record.msg)
+        elif "analysis procedure completed" in record.msg:
+            colored.msg = cyan(record.msg)
         else:
-            if "analysis procedure completed" in record.msg:
-                colored.msg = cyan(record.msg)
-            else:
-                colored.msg = record.msg
+            colored.msg = record.msg
 
         logging.StreamHandler.emit(self, colored)
 
@@ -104,8 +102,7 @@ def task_log_start(task_id):
 
 def task_log_stop(task_id):
     """Disassociate a thread from a task."""
-    task = _tasks.pop(task_key(), None)
-    if task:
+    if task := _tasks.pop(task_key(), None):
         task[1].close()
 
 def init_logger(name, level=None):

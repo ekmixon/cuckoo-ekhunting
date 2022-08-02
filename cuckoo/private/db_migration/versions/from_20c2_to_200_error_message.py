@@ -38,9 +38,10 @@ def upgrade():
             "SELECT id, message, task_id FROM errors"
         ).fetchall()
 
-        errors = []
-        for error in old_errors:
-            errors.append(dict(zip(("id", "message", "task_id"), error)))
+        errors = [
+            dict(zip(("id", "message", "task_id"), error))
+            for error in old_errors
+        ]
 
         op.rename_table("errors", "old_errors")
         op.drop_table("old_errors")

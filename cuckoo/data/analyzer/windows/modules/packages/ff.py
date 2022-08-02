@@ -113,18 +113,13 @@ user_pref("xpinstall.whitelist.required", false);"""
             profilename = random_string(8, 15)
             profile_path = os.path.join(os.getenv("TEMP"), profilename)
 
-            subprocess.call([
-                firefox,
-                "-CreateProfile", "%s %s" % (profilename, profile_path)
-            ])
+            subprocess.call([firefox, "-CreateProfile", f"{profilename} {profile_path}"])
             with open(os.path.join(profile_path, "prefs.js"), "wb") as fp:
                 fp.write(self.prefsfile)
 
-            pid = self.execute(
-                firefox, args=["-no-remote", "-P", profilename, url],
-                maximize=True
-            )
-            if pid:
+            if pid := self.execute(
+                firefox, args=["-no-remote", "-P", profilename, url], maximize=True
+            ):
                 pids.append(pid)
                 self.pids_targets[pid] = url
 

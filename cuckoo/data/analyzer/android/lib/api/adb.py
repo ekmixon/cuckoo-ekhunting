@@ -26,7 +26,7 @@ def install_sample(path):
 def execute_sample(package, activity):
     """Execute the sample on the emulator via adb"""
     try:
-        package_activity = "%s/%s" % (package, activity)
+        package_activity = f"{package}/{activity}"
         args = [
             "/system/bin/sh", "/system/bin/am", "start",
             "-n", package_activity,
@@ -44,8 +44,8 @@ def dump_droidmon_logs(package):
         log.info("Could not find any Xposed logs, skipping droidmon logs.")
         return
 
-    tag = "Droidmon-apimonitor-%s" % package
-    tag_error = "Droidmon-shell-%s" % package
+    tag = f"Droidmon-apimonitor-{package}"
+    tag_error = f"Droidmon-shell-{package}"
 
     log_xposed, log_success, log_error = [], [], []
 
@@ -79,10 +79,9 @@ def execute_browser(url):
 
 def take_screenshot(filename):
     try:
-        subprocess.check_output(["/system/bin/screencap", "-p",
-                                 "/sdcard/%s" % filename])
+        subprocess.check_output(["/system/bin/screencap", "-p", f"/sdcard/{filename}"])
     except subprocess.CalledProcessError as e:
         log.error("Error creating screenshot: %r", e)
         return
 
-    return "/sdcard/%s" % filename
+    return f"/sdcard/{filename}"

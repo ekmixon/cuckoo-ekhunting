@@ -41,9 +41,7 @@ class RealTimeHandler(object):
         be called or receive their response."""
         response_id = msg.get("rid")
         if response_id is not None:
-            # This is a response to a previous message
-            callback = self.command_cb.get(response_id)
-            if callback:
+            if callback := self.command_cb.get(response_id):
                 log.debug(
                     "Calling response handler %s -> %r", response_id, callback
                 )
@@ -104,14 +102,11 @@ class RealTimeHandler(object):
         guest
         """
 
-        # Command might be sent when the analyzer has not connected back yet.
-        # Wait a single time if there is no socket yet.
-        wait = 0
         if not self.sock:
-            while True:
-                if self.sock:
-                    break
-
+            # Command might be sent when the analyzer has not connected back yet.
+            # Wait a single time if there is no socket yet.
+            wait = 0
+            while not self.sock:
                 if wait >= 10:
                     raise RealtimeError(
                         "No socket available to send commands over."
@@ -468,7 +463,7 @@ class EventMessageServer(object):
                             )
                         cleanup.append(mes_handler.sock)
 
-            for x in range(len(cleanup)):
+            for _ in range(len(cleanup)):
                 self.cleanup_client(cleanup.pop())
 
     def _handle(self):
@@ -568,15 +563,13 @@ class MessageHandler(object):
                 return l
 
             if len(self.rcvbuf) >= self.MAX_INFO_BUF:
-                raise ValueError(
-                    "Received message exceeds %s bytes" % self.MAX_INFO_BUF
-                )
+                raise ValueError(f"Received message exceeds {self.MAX_INFO_BUF} bytes")
             buf = self._read()
 
-            if not buf and not self.rcvbuf:
-                return
-
             if not buf:
+                if not self.rcvbuf:
+                    return
+
                 raise EOFError("Last byte is: %r" % self.rcvbuf[:1])
 
             self.rcvbuf += buf
@@ -698,7 +691,7 @@ class EventClient(object):
         For each received of the given type, this method will be called with
         the event message as its only parameter."""
         if not isinstance(event_types, (list, tuple, set)):
-            event_types = set([event_types])
+            event_types = {event_types}
 
         subto = []
         try:
@@ -718,7 +711,7 @@ class EventClient(object):
         """Unsubscribe the given callback method from the given event
         type(s)."""
         if not isinstance(event_types, (list, tuple, set)):
-            event_types = set([event_types])
+            event_types = {event_types}
 
         unsubfrom = []
         try:
@@ -764,8 +757,7 @@ class EventClient(object):
                 if not protaction or not isinstance(protaction, basestring):
                     continue
 
-                handler = self.protaction_handlers.get(protaction)
-                if handler:
+                if handler := self.protaction_handlers.get(protaction):
                     handler(mes_body)
                 else:
                     log.debug(
@@ -802,7 +794,7 @@ class EventClient(object):
         """Send out all queued messages"""
         try:
             self.queuelock.acquire(True)
-            for c in range(len(self.mesqueue)):
+            for _ in range(len(self.mesqueue)):
                 message = self.mesqueue.pop(0)
                 try:
                     self.mes_handler.send_json_message(message)

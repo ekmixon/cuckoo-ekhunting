@@ -82,8 +82,7 @@ class Package(object):
             if os.path.isfile(path):
                 return path
 
-        raise CuckooPackageError("Unable to find any %s executable." %
-                                 application)
+        raise CuckooPackageError(f"Unable to find any {application} executable.")
 
     def get_path_glob(self, application):
         """Search for the application in all available paths with glob support.
@@ -95,8 +94,7 @@ class Package(object):
                 if os.path.isfile(path):
                     return path
 
-        raise CuckooPackageError("Unable to find any %s executable." %
-                                 application)
+        raise CuckooPackageError(f"Unable to find any {application} executable.")
 
     def move_curdir(self, filepath):
         """Move a file to the current working directory so it can be executed
@@ -153,9 +151,12 @@ class Package(object):
         source = source or self.options.get("from")
         mode = mode or self.options.get("mode")
 
-        if not trigger and self.options.get("trigger"):
-            if self.options["trigger"] == "exefile":
-                trigger = "file:%s" % path
+        if (
+            not trigger
+            and self.options.get("trigger")
+            and self.options["trigger"] == "exefile"
+        ):
+            trigger = f"file:{path}"
 
         # Setup pre-defined registry keys.
         if self.set_regkeys:

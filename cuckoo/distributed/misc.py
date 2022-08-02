@@ -71,7 +71,7 @@ class StatsCache(object):
                 set_dt, step_size
             ).strftime(self.dt_ftm)
 
-            key = "%s%s" % (key_prefix, dt_step)
+            key = f"{key_prefix}{dt_step}"
             self.stats[name][key] = set_value
         else:
             if key not in self.stats[name]:
@@ -91,9 +91,7 @@ class StatsCache(object):
         # Never return a cache value for current time, since these values
         # can still change
         if dt < datetime.datetime.now():
-            return self.stats[name].get("%s%s" % (
-                key_prefix, dt.strftime(self.dt_ftm)
-            ))
+            return self.stats[name].get(f"{key_prefix}{dt.strftime(self.dt_ftm)}")
         else:
             return None
 

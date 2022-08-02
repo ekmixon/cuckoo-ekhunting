@@ -55,9 +55,8 @@ class Screenshots(Auxiliary, Thread):
                 log.error("Cannot take screenshot: %s", e)
                 continue
 
-            if img_last:
-                if Screenshot().equal(img_last, img_current, SKIP_AREA):
-                    continue
+            if img_last and Screenshot().equal(img_last, img_current, SKIP_AREA):
+                continue
 
             img_counter += 1
 
@@ -67,7 +66,7 @@ class Screenshots(Auxiliary, Thread):
             tmpio.seek(0)
 
             # now upload to host from the StringIO
-            nf = NetlogFile("shots/%s.png" % str(img_counter).rjust(4, "0"))
+            nf = NetlogFile(f'shots/{str(img_counter).rjust(4, "0")}.png')
 
             for chunk in tmpio:
                 nf.sock.sendall(chunk)

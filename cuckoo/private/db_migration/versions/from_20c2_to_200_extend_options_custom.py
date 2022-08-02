@@ -75,9 +75,7 @@ def upgrade():
             "ALTER TABLE tasks MODIFY custom text"
         )
     elif conn.engine.driver == "pysqlite":
-        old_tasks = conn.execute(
-            "SELECT %s FROM tasks" % ", ".join(columns)
-        ).fetchall()
+        old_tasks = conn.execute(f'SELECT {", ".join(columns)} FROM tasks').fetchall()
 
         tasks = []
         for task in old_tasks:

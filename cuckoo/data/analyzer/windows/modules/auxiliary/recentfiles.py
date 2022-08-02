@@ -40,11 +40,12 @@ class RecentFiles(Auxiliary):
             location = "documents"
 
         dirpath = PWSTR()
-        r = SHELL32.SHGetKnownFolderPath(
+        if r := SHELL32.SHGetKnownFolderPath(
             uuid.UUID(self.locations[location]).get_bytes_le(),
-            0, None, ctypes.byref(dirpath)
-        )
-        if r:
+            0,
+            None,
+            ctypes.byref(dirpath),
+        ):
             log.warning("Error obtaining user directory: 0x%08x", r)
             return
 
@@ -59,7 +60,7 @@ class RecentFiles(Auxiliary):
         for idx in xrange(random.randint(5, 10)):
             filename = random_string(10, random.randint(10, 20))
             ext = random.choice(self.extensions)
-            filepath = os.path.join(dirpath, "%s.%s" % (filename, ext))
+            filepath = os.path.join(dirpath, f"{filename}.{ext}")
             open(filepath, "wb").write(os.urandom(random.randint(30, 999999)))
 
             SHELL32.SHAddToRecentDocs(SHARD_PATHA, filepath)
@@ -67,5 +68,6 @@ class RecentFiles(Auxiliary):
             set_regkey_full(
                 "HKEY_CURRENT_USER\\Software\\Microsoft\\Office\\12.0\\"
                 "Word\\File MRU\\Item %d" % (idx + 1),
-                "REG_SZ", "[F00000000][T01D1C40000000000]*%s" % filepath,
+                "REG_SZ",
+                f"[F00000000][T01D1C40000000000]*{filepath}",
             )

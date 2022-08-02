@@ -13,4 +13,4 @@ ISSUES_PAGE_URL = "https://github.com/cuckoosandbox/cuckoo/issues"
 DOCS_URL = "https://cuckoo.sh/docs"
 
 def faq(entry):
-    return "%s/faq/index.html#%s" % (DOCS_URL, entry)
+    return f"{DOCS_URL}/faq/index.html#{entry}"

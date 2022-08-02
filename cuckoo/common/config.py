@@ -175,11 +175,10 @@ class List(Type):
             ret = []
 
             if isinstance(value, (tuple, list)):
-                for entry in value:
-                    ret.append(self.subclass().parse(entry))
+                ret.extend(self.subclass().parse(entry) for entry in value)
                 return ret
 
-            for entry in re.split("[%s]" % self.sep, value):
+            for entry in re.split(f"[{self.sep}]", value):
                 if self.strip:
                     entry = entry.strip()
                     if not entry:
@@ -970,23 +969,21 @@ class Config(object):
         @param file_name: file name without extension.
         @param cfg: configuration file path.
         """
-        env = {}
-        for key, value in os.environ.items():
-            if key.startswith("CUCKOO_"):
-                env[key] = value
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if key.startswith("CUCKOO_")
+        }
 
         env["CUCKOO_CWD"] = cwd()
         env["CUCKOO_APP"] = os.environ.get("CUCKOO_APP", "")
         config = ConfigParser.ConfigParser(env)
 
-        self.env_keys = []
-        for key in env.keys():
-            self.env_keys.append(key.lower())
-
+        self.env_keys = [key.lower() for key in env]
         self.sections = {}
 
         try:
-            config.read(cfg or cwd("conf", "%s.conf" % file_name))
+            config.read(cfg or cwd("conf", f"{file_name}.conf"))
         except ConfigParser.ParsingError as e:
             raise CuckooConfigurationError(
                 "There was an error reading in the $CWD/conf/%s.conf "
@@ -1012,9 +1009,7 @@ class Config(object):
                 items = config.items(section)
             except ConfigParser.InterpolationMissingOptionError as e:
                 log.error("Missing environment variable(s): %s", e)
-                raise CuckooConfigurationError(
-                    "Missing environment variable: %s" % e
-                )
+                raise CuckooConfigurationError(f"Missing environment variable: {e}")
             except ValueError as e:
                 if e.message == "incomplete format key":
                     raise CuckooConfigurationError(
@@ -1077,8 +1072,9 @@ class Config(object):
         """
         if section not in self.sections:
             raise CuckooConfigurationError(
-                "Option %s is not found in configuration" % section
+                f"Option {section} is not found in configuration"
             )
+
 
         return self.sections[section]
 
@@ -1122,12 +1118,12 @@ def parse_options(options):
 
 def emit_options(options):
     """Emit the analysis options from a dictionary to a string."""
-    return ",".join("%s=%s" % (k, v) for k, v in sorted(options.items()))
+    return ",".join(f"{k}={v}" for k, v in sorted(options.items()))
 
 def config(s, cfg=None, strict=False, raw=False, loose=False, check=False):
     """Fetch a configuration value, denoted as file:section:key."""
     if s.count(":") != 2:
-        raise RuntimeError("Invalid configuration entry: %s" % s)
+        raise RuntimeError(f"Invalid configuration entry: {s}")
 
     file_name, section, key = s.split(":")
 
@@ -1136,9 +1132,7 @@ def config(s, cfg=None, strict=False, raw=False, loose=False, check=False):
 
     type_ = Config.configuration.get(file_name, {}).get(section, {}).get(key)
     if strict and type_ is None:
-        raise CuckooConfigurationError(
-            "No such configuration value exists: %s" % s
-        )
+        raise CuckooConfigurationError(f"No such configuration value exists: {s}")
 
     required = type_ is not None and type_.required
     index = file_name, cfg, cwd(), strict, raw, loose
@@ -1184,7 +1178,7 @@ def get_section_types(file_name, section, strict=False):
 
     if strict:
         section_, key = Config.configuration[file_name]["__star__"]
-        if section not in config("%s:%s:%s" % (file_name, section_, key)):
+        if section not in config(f"{file_name}:{section_}:{key}"):
             return {}
 
     if "*" in Config.configuration.get(file_name, {}):
@@ -1199,28 +1193,26 @@ def config2(file_name, section):
     keys = get_section_types(file_name, section, strict=True)
     if not keys:
         raise CuckooConfigurationError(
-            "No such configuration section exists: %s:%s" %
-            (file_name, section)
+            f"No such configuration section exists: {file_name}:{section}"
         )
+
 
     ret = Dictionary()
     for key in keys:
-        if key == "__star__" or key == "*":
+        if key in ["__star__", "*"]:
             continue
-        ret[key] = config("%s:%s:%s" % (file_name, section, key))
+        ret[key] = config(f"{file_name}:{section}:{key}")
     return ret
 
 def cast(s, value):
     """Cast a configuration value as per its type."""
     if s.count(":") != 2:
-        raise RuntimeError("Invalid configuration entry: %s" % s)
+        raise RuntimeError(f"Invalid configuration entry: {s}")
 
     file_name, section, key = s.split(":")
     type_ = get_section_types(file_name, section).get(key)
     if type_ is None:
-        raise CuckooConfigurationError(
-            "No such configuration value exists: %s" % s
-        )
+        raise CuckooConfigurationError(f"No such configuration value exists: {s}")
 
     return type_.parse(value)
 
@@ -1244,13 +1236,15 @@ def read_kv_conf(filepath):
             value = cast(key, raw_value)
         except (CuckooConfigurationError, RuntimeError) as e:
             raise CuckooConfigurationError(
-                "Invalid flat configuration line: %s (error %s)" % (line, e)
+                f"Invalid flat configuration line: {line} (error {e})"
             )
+
 
         if raw_value and value is None:
             raise CuckooConfigurationError(
-                "Invalid flat configuration entry: %s is None" % key
+                f"Invalid flat configuration entry: {key} is None"
             )
+
 
         a, b, c = key.split(":")
         ret[a] = ret.get(a, {})

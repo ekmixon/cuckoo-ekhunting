@@ -53,7 +53,7 @@ def dumpcmd(dburi, dirpath):
         if engine.url.username:
             args += ["-u", engine.url.username]
         if engine.url.password:
-            args.append("-p%s" % engine.url.password)
+            args.append(f"-p{engine.url.password}")
         if engine.url.host and engine.url.host != "localhost":
             args += ["-h", engine.url.host]
         args.append(engine.url.database)
@@ -98,13 +98,15 @@ def movesql(dburi, mode, dirpath):
 def sqldump(dburi, dirpath):
     args, env = dumpcmd(dburi, dirpath)
 
-    envargs = " ".join("%s=%s" % (k, v) for k, v in env.items())
+    envargs = " ".join(f"{k}={v}" for k, v in env.items())
     cmdline = " ".join('"%s"' % arg if " " in arg else arg for arg in args)
-    cmd = "%s %s" % (envargs, cmdline) if envargs else cmdline
+    cmd = f"{envargs} {cmdline}" if envargs else cmdline
 
-    print "We can make a SQL database backup as follows:"
-    print "input cmd  =>", cmd
-    print "output SQL =>", cwd("backup.sql")
+    args, env = dumpcmd(dburi, dirpath)
+
+    args, env = dumpcmd(dburi, dirpath)
+
+    args, env = dumpcmd(dburi, dirpath)
 
     if not click.confirm("Would you like to make a backup", default=True):
         return
@@ -192,9 +194,7 @@ def import_analysis_copy(src, dst):
     def ignore(src, names):
         if "binary" not in names:
             return []
-        if not os.path.exists(os.path.join(src, "binary")):
-            return ["binary"]
-        return []
+        return [] if os.path.exists(os.path.join(src, "binary")) else ["binary"]
 
     shutil.copytree(src, dst, ignore=ignore)
 

@@ -55,9 +55,7 @@ def submit_task(url, task):
 
 def fetch_tasks(url, status, limit):
     r = _get(url, "/tasks/list/%s", limit, params=dict(status=status))
-    if r.status_code == 200:
-        return r.json().get("tasks", [])
-    return []
+    return r.json().get("tasks", []) if r.status_code == 200 else []
 
 def store_report(url, task_id, report_format, dirpath):
     report = _get(
@@ -69,7 +67,7 @@ def store_report(url, task_id, report_format, dirpath):
     if report.status_code != 200:
         raise InvalidReport("Report status code %d" % report.status_code)
 
-    path = os.path.join(dirpath, "report.%s" % report_format)
+    path = os.path.join(dirpath, f"report.{report_format}")
     with open(path, "wb") as f:
         for chunk in report.iter_content(chunk_size=1024*1024):
             f.write(chunk)

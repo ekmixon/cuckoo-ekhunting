@@ -96,16 +96,16 @@ def create_single_task(group_id, urls, run, **kwargs):
 
 def generate_task_args(profile, group):
     options = DEFAULT_OPTIONS
-    options += ",route=%s" % profile.route
+    options += f",route={profile.route}"
 
     if profile.country:
         if profile.route == "vpn":
-            options += ",vpn.country=%s" % profile.country
+            options += f",vpn.country={profile.country}"
         elif profile.route == "socks5":
-            options += ",socks5.country=%s" % profile.country
+            options += f",socks5.country={profile.country}"
 
-    options += ",urlblocksize=%s" % group.batch_size
-    options += ",blocktime=%s" % group.batch_time
+    options += f",urlblocksize={group.batch_size}"
+    options += f",blocktime={group.batch_time}"
     tags = ",".join([t.name for t in profile.tags])
 
     return {
@@ -126,12 +126,12 @@ def insert_group_tasks(group):
             group.name, profile.name
         )
         args = generate_task_args(profile, group)
-        for task_id in create_parallel_tasks(urls, group.max_parallel, **args):
-            groupid_task.append({
-                "url_group_id": group.id,
-                "task_id": task_id,
-                "run": run
-            })
+        groupid_task.extend(
+            {"url_group_id": group.id, "task_id": task_id, "run": run}
+            for task_id in create_parallel_tasks(
+                urls, group.max_parallel, **args
+            )
+        )
 
     if groupid_task:
         s = db.Session()
@@ -154,10 +154,10 @@ def insert_group_tasks(group):
 def task_creator():
     """Creates tasks"""
     while True:
-        group = next_group_task()
-        if not group:
+        if group := next_group_task():
+            insert_group_tasks(group)
+        else:
             break
-        insert_group_tasks(group)
 
 def task_checker():
     s = db.Session()
@@ -276,14 +276,23 @@ def task_checker():
             group.status = "completed"
             s.add(group)
 
-            alerts.append({
-                "level": 1, "title": "Group analysis completed",
-                "url_group_name": group.name,
-                "content": "The analysis of group '%s' has completed. %s" % (
-                    group.name, ("Next run at %s" % group.schedule_next)
-                    if group.schedule_next else ""
-                )
-            })
+            alerts.append(
+                {
+                    "level": 1,
+                    "title": "Group analysis completed",
+                    "url_group_name": group.name,
+                    "content": (
+                        "The analysis of group '%s' has completed. %s"
+                        % (
+                            group.name,
+                            f"Next run at {group.schedule_next}"
+                            if group.schedule_next
+                            else "",
+                        )
+                    ),
+                }
+            )
+
             s.commit()
     finally:
         s.close()
@@ -313,22 +322,19 @@ def signature_runner():
         )
 
         for match in matches:
-            diary = URLDiaries.get_diary(
+            if diary := URLDiaries.get_diary(
                 diary_id=match, return_fields=["url", "version"]
-            )
-            if not diary:
-                continue
-
-            web.send_alert(
-                title="Custom signature match! '%s'" % signature.name,
-                level=signature.level, diary_id=match,
-                signature=signature.name,
-                content="URL diary(version=%s)"
-                        " for URL %s matched signature %s." % (
-                            diary.get("version"), diary.get("url"),
-                            signature.name,
-                        )
-            )
+            ):
+                web.send_alert(
+                    title="Custom signature match! '%s'" % signature.name,
+                    level=signature.level, diary_id=match,
+                    signature=signature.name,
+                    content="URL diary(version=%s)"
+                            " for URL %s matched signature %s." % (
+                                diary.get("version"), diary.get("url"),
+                                signature.name,
+                            )
+                )
         massurldb.update_signature(
             signature_id=signature.id, last_run=datetime.datetime.utcnow()
         )

@@ -44,19 +44,20 @@ def upgrade():
             " added_on, started_on, completed_on, status, sample_id from tasks"
         ).fetchall()
         for item in old_tasks:
-            d = {}
-            d["id"] = item[0]
-            d["target"] = item[1]
-            d["category"] = item[2]
-            d["timeout"] = item[3]
-            d["priority"] = item[4]
-            d["custom"] = item[5]
-            d["machine"] = item[6]
-            d["package"] = item[7]
-            d["options"] = item[8]
-            d["platform"] = item[9]
-            d["memory"] = item[10]
-            d["enforce_timeout"] = item[11]
+            d = {
+                "id": item[0],
+                "target": item[1],
+                "category": item[2],
+                "timeout": item[3],
+                "priority": item[4],
+                "custom": item[5],
+                "machine": item[6],
+                "package": item[7],
+                "options": item[8],
+                "platform": item[9],
+                "memory": item[10],
+                "enforce_timeout": item[11],
+            }
 
             if isinstance(item[12], datetime):
                 d["clock"] = item[12]

@@ -13,11 +13,9 @@ class Jar(Package):
 
     def start(self, path):
         java = self.get_path_glob("Java")
-        class_path = self.options.get("class")
-
-        if class_path:
+        if class_path := self.options.get("class"):
             args = ["-cp", path, class_path]
         else:
             args = ["-jar", path]
 
-        return self.execute(java, args=args, trigger="file:%s" % path)
+        return self.execute(java, args=args, trigger=f"file:{path}")

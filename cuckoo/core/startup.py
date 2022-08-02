@@ -36,18 +36,15 @@ log = logging.getLogger(__name__)
 def check_specific_config(filename):
     sections = Config.configuration[filename]
     for section, entries in sections.items():
-        if section == "*" or section == "__star__":
+        if section in ["*", "__star__"]:
             continue
 
         # If an enabled field is present, check it beforehand.
-        if config("%s:%s:enabled" % (filename, section)) is False:
+        if config(f"{filename}:{section}:enabled") is False:
             continue
 
         for key, value in entries.items():
-            config(
-                "%s:%s:%s" % (filename, section, key),
-                check=True, strict=True
-            )
+            config(f"{filename}:{section}:{key}", check=True, strict=True)
 
 def check_configs():
     """Checks if config files exist.
@@ -58,11 +55,11 @@ def check_configs():
     )
 
     for filename in configs:
-        if not os.path.exists(cwd("conf", "%s.conf" % filename)):
+        if not os.path.exists(cwd("conf", f"{filename}.conf")):
             raise CuckooStartupError(
-                "Config file does not exist at path: %s" %
-                cwd("conf", "%s.conf" % filename)
+                f'Config file does not exist at path: {cwd("conf", f"{filename}.conf")}'
             )
+
 
         check_specific_config(filename)
 
@@ -70,17 +67,16 @@ def check_configs():
     machinery = config("cuckoo:cuckoo:machinery")
     if machinery not in Config.configuration:
         raise CuckooStartupError(
-            "An unknown machinery has been chosen (machinery=%s)!" % machinery
+            f"An unknown machinery has been chosen (machinery={machinery})!"
         )
+
 
     check_specific_config(machinery)
 
-    # If Cuckoo Feedback is enabled, ensure its configuration is valid.
-    feedback_enabled = (
-        config("cuckoo:feedback:enabled") or
-        config("reporting:feedback:enabled")
-    )
-    if feedback_enabled:
+    if feedback_enabled := (
+        config("cuckoo:feedback:enabled")
+        or config("reporting:feedback:enabled")
+    ):
         try:
             CuckooFeedbackObject(
                 name=config("cuckoo:feedback:name"),
@@ -110,7 +106,7 @@ def check_version():
         r.raise_for_status()
         r = r.json()
     except (requests.RequestException, ValueError) as e:
-        print(red(" Error checking for the latest Cuckoo version: %s!" % e))
+        print(red(f" Error checking for the latest Cuckoo version: {e}!"))
         return
 
     try:
@@ -119,16 +115,16 @@ def check_version():
         old = True
 
     if old:
-        msg = "Cuckoo Sandbox version %s is available now." % r["version"]
+        msg = f'Cuckoo Sandbox version {r["version"]} is available now.'
         print(red(" Outdated! ") + msg)
     else:
         print(green(" You're good to go!"))
 
     print("\n Our latest blogposts:")
     for blogpost in r["blogposts"]:
-        print(" * %s, %s." % (yellow(blogpost["title"]), blogpost["date"]))
-        print("   %s" % red(blogpost["oneline"]))
-        print("   More at %s" % blogpost["url"])
+        print(f' * {yellow(blogpost["title"])}, {blogpost["date"]}.')
+        print(f'   {red(blogpost["oneline"])}')
+        print(f'   More at {blogpost["url"]}')
         print("")
     return r
 
@@ -249,8 +245,9 @@ def init_yara():
             )
         except yara.Error as e:
             raise CuckooStartupError(
-                "There was a syntax error in one or more Yara rules: %s" % e
+                f"There was a syntax error in one or more Yara rules: {e}"
             )
+
 
         # The memory.py processing module requires a yara file with all of its
         # rules embedded in it, so create this file to remain compatible.
@@ -338,7 +335,7 @@ def init_rooter():
                 "rooter."
             )
 
-        raise CuckooStartupError("Unknown rooter error: %s" % e)
+        raise CuckooStartupError(f"Unknown rooter error: {e}")
 
     # Do not forward any packets unless we have explicitly stated so.
     rooter("forward_drop")

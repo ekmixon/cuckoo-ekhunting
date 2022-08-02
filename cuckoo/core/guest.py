@@ -42,9 +42,7 @@ def analyzer_zipfile(platform, monitor):
 
     if not os.path.exists(root):
         log.error("No valid analyzer found at path: %s", root)
-        raise CuckooGuestError(
-            "No valid analyzer found for %s platform!" % platform
-        )
+        raise CuckooGuestError(f"No valid analyzer found for {platform} platform!")
 
     # Walk through everything inside the analyzer's folder and write
     # them to the zip archive.
@@ -190,9 +188,9 @@ class OldGuestManager(object):
                 self.server.add_config(options)
             except:
                 raise CuckooGuestError(
-                    "%s: unable to upload config to analysis machine" %
-                    self.id
+                    f"{self.id}: unable to upload config to analysis machine"
                 )
+
 
             # If the target of the analysis is a file, upload it to the guest.
             if self.target.is_file:
@@ -210,8 +208,6 @@ class OldGuestManager(object):
             # Launch the analyzer.
             pid = self.server.execute()
             log.debug("%s: analyzer started with PID %d", self.id, pid)
-        # If something goes wrong when establishing the connection, raise an
-        # exception and abort the analysis.
         except (socket.timeout, socket.error):
             raise CuckooGuestError(
                 "%s: guest communication timeout, check networking or try "
@@ -248,9 +244,7 @@ class OldGuestManager(object):
                 break
             elif status == CUCKOO_GUEST_FAILED:
                 error = self.server.get_error()
-                raise CuckooGuestError(
-                    "Analysis failed: %s" % (error or "unknown error")
-                )
+                raise CuckooGuestError(f'Analysis failed: {error or "unknown error"}')
             else:
                 log.debug("%s: analysis not completed yet (status=%s)",
                           self.id, status)
@@ -293,7 +287,7 @@ class GuestManager(object):
     def get(self, method, *args, **kwargs):
         """Simple wrapper around requests.get()."""
         do_raise = kwargs.pop("do_raise", True)
-        url = "http://%s:%s%s" % (self.ipaddr, self.port, method)
+        url = f"http://{self.ipaddr}:{self.port}{method}"
         session = requests.Session()
         session.trust_env = False
         session.proxies = None
@@ -312,7 +306,7 @@ class GuestManager(object):
 
     def post(self, method, *args, **kwargs):
         """Simple wrapper around requests.post()."""
-        url = "http://%s:%s%s" % (self.ipaddr, self.port, method)
+        url = f"http://{self.ipaddr}:{self.port}{method}"
         session = requests.Session()
         session.trust_env = False
         session.proxies = None
@@ -368,14 +362,10 @@ class GuestManager(object):
             self.analyzer_path = r.json()["dirpath"]
 
     def determine_system_drive(self):
-        if self.platform == "windows":
-            return "%s/" % self.environ["SYSTEMDRIVE"]
-        return "/"
+        return f'{self.environ["SYSTEMDRIVE"]}/' if self.platform == "windows" else "/"
 
     def determine_temp_path(self):
-        if self.platform == "windows":
-            return self.environ["TEMP"]
-        return "/tmp"
+        return self.environ["TEMP"] if self.platform == "windows" else "/tmp"
 
     def upload_analyzer(self, monitor):
         """Upload the analyzer to the Virtual Machine."""
@@ -400,9 +390,9 @@ class GuestManager(object):
         for key, value in options.items():
             # Encode datetime objects the way xmlrpc encodes them.
             if isinstance(value, datetime.datetime):
-                config.append("%s = %s" % (key, value.strftime("%Y%m%dT%H:%M:%S")))
+                config.append(f'{key} = {value.strftime("%Y%m%dT%H:%M:%S")}')
             else:
-                config.append("%s = %s" % (key, value))
+                config.append(f"{key} = {value}")
 
         data = {
             "filepath": os.path.join(self.analyzer_path, "analysis.conf"),
@@ -501,10 +491,11 @@ class GuestManager(object):
 
         if "execpy" in features:
             data = {
-                "filepath": "%s/analyzer.py" % self.analyzer_path,
+                "filepath": f"{self.analyzer_path}/analyzer.py",
                 "async": "yes",
                 "cwd": self.analyzer_path,
             }
+
             self.post("/execpy", data=data)
         else:
             # Execute the analyzer that we just uploaded.

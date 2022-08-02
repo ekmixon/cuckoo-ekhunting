@@ -18,16 +18,16 @@ class ApkInfo(Processing):
     """Static android information about analysis session."""
 
     def check_size(self, file_list):
-        for file in file_list:
-            if "classes.dex" in file["name"]:
-                if("decompilation_threshold" in self.options):
-                    if file["size"] < self.options.decompilation_threshold:
-                        return True
-                    else:
-                        return False
-                else:
-                    return True
-        return False
+        return next(
+            (
+                file["size"] < self.options.decompilation_threshold
+                if ("decompilation_threshold" in self.options)
+                else True
+                for file in file_list
+                if "classes.dex" in file["name"]
+            ),
+            False,
+        )
 
     def _apk_files(self, apk):
         """Returns a list of files in the APK."""
@@ -65,9 +65,8 @@ class ApkInfo(Processing):
             try:
                 a = APK(self.file_path)
                 if a.is_valid_APK():
-                    manifest = {}
                     apkinfo["files"] = self._apk_files(a)
-                    manifest["package"] = a.get_package()
+                    manifest = {"package": a.get_package()}
                     # manifest["permissions"]=a.get_details_permissions_new()
                     manifest["main_activity"] = a.get_main_activity()
                     manifest["activities"] = a.get_activities()
@@ -98,7 +97,7 @@ class ApkInfo(Processing):
                                     self.options.decompilation_threshold)
                     apkinfo["static_method_calls"] = static_calls
             except (IOError, OSError, zipfile.BadZipfile) as e:
-                raise CuckooProcessingError("Error opening file %s" % e)
+                raise CuckooProcessingError(f"Error opening file {e}")
 
         return apkinfo
 

@@ -195,14 +195,13 @@ class Task(object):
         """Check tags and change into usable format"""
         ret = []
         if isinstance(tags, basestring):
-            for tag in tags.split(","):
-                if tag.strip():
-                    ret.append(tag.strip())
-
+            ret.extend(tag.strip() for tag in tags.split(",") if tag.strip())
         elif isinstance(tags, (tuple, list)):
-            for tag in tags:
-                if isinstance(tag, basestring) and tag.strip():
-                    ret.append(tag.strip())
+            ret.extend(
+                tag.strip()
+                for tag in tags
+                if isinstance(tag, basestring) and tag.strip()
+            )
 
         return ret
 
@@ -468,7 +467,7 @@ class Task(object):
             )
             return None
 
-        custom = "%s" % task_id
+        custom = f"{task_id}"
 
         if not self.targets:
             log.error(
@@ -668,12 +667,12 @@ class Task(object):
 
         for reqname, value in req_fields.iteritems():
             if value:
-                requirements += "%s=" % reqname
+                requirements += f"{reqname}="
                 if reqname == "tags":
                     for tag in db_task.tags:
-                        requirements += "%s," % tag.name
+                        requirements += f"{tag.name},"
                 else:
-                    requirements += "%s" % value
+                    requirements += f"{value}"
                 requirements += " "
 
         return requirements
@@ -690,19 +689,16 @@ class Task(object):
         size_total = 0
 
         for directory in taken_dirs:
-            destination = "%s/%s" % (path, os.path.basename(directory))
+            destination = f"{path}/{os.path.basename(directory)}"
             if os.path.isdir(destination):
                 size_total += get_directory_size(destination)
 
         for filename in taken_files:
-            destination = "%s/%s" % (path, os.path.basename(filename))
+            destination = f"{path}/{os.path.basename(filename)}"
             if os.path.isfile(destination):
                 size_total += os.path.getsize(destination)
 
-        # estimate file size after zipping; 60% compression rate typically
-        size_estimated = size_total / 6.5
-
-        return size_estimated
+        return size_total / 6.5
 
     @staticmethod
     def get_files(task_id):
@@ -816,12 +812,7 @@ class Task(object):
                     # should only be included
                     include = True
                     if basedir in include_exts and include_exts[basedir]:
-                        include = False
-                        for ext in include_exts[basedir]:
-                            if filename.endswith(ext):
-                                include = True
-                                break
-
+                        include = any(filename.endswith(ext) for ext in include_exts[basedir])
                     if not include:
                         continue
 

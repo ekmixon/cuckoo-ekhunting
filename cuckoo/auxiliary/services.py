@@ -26,7 +26,7 @@ class Services(Auxiliary):
         # starting the actual analysis.
         timeout = self.task.timeout or config("cuckoo:timeouts:default")
         timeout += 300
-        tags = "service,%s" % service
+        tags = f"service,{service}"
 
         return submit_task.add_service(timeout, self.task.id, tags)
 

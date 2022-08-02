@@ -21,9 +21,7 @@ class Process:
     def is_alive(self):
         if not os.path.exists("/proc/%u" % self.pid): return False
         status = self.get_proc_status()
-        if not status: return False
-        if "zombie" in status.get("State:", ""): return False
-        return True
+        return "zombie" not in status.get("State:", "") if status else False
 
     def get_parent_pid(self):
         return self.get_proc_status().get("PPid", None)
@@ -31,8 +29,7 @@ class Process:
     def get_proc_status(self):
         try:
             status = open("/proc/%u/status" % self.pid).readlines()
-            status_values = dict((i[0], i[1]) for i in [j.strip().split(None, 1) for j in status])
-            return status_values
+            return {i[0]: i[1] for i in [j.strip().split(None, 1) for j in status]}
         except:
             log.critical("could not get process status for pid %u", self.pid)
         return {}

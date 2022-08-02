@@ -11,12 +11,10 @@ class Structure(ctypes.Structure):
             value = getattr(self, field)
             if isinstance(value, Structure):
                 ret[field] = value.as_dict()
-            elif hasattr(value, "value"):
+            elif hasattr(value, "value") or not hasattr(value, "__getitem__"):
                 ret[field] = value
-            elif hasattr(value, "__getitem__"):
-                ret[field] = value[:]
             else:
-                ret[field] = value
+                ret[field] = value[:]
         return ret
 
 class LnkHeader(Structure):

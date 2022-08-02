@@ -25,9 +25,7 @@ def json_error(status_code, message, *args):
     return r
 
 def node_url(ip=None, url=None):
-    if ip is not None:
-        return "http://%s:8090/" % ip
-    return url
+    return f"http://{ip}:8090/" if ip is not None else url
 
 @blueprint.route("/node")
 @blueprint.route("/node/<string:name>")
@@ -37,13 +35,14 @@ def node_get(name=None):
         if name and node.name != name:
             continue
 
-        machines = []
-        for machine in node.machines.all():
-            machines.append(dict(
+        machines = [
+            dict(
                 name=machine.name,
                 platform=machine.platform,
                 tags=machine.tags,
-            ))
+            )
+            for machine in node.machines.all()
+        ]
 
         nodes[node.name] = dict(
             enabled=node.enabled,
@@ -55,13 +54,7 @@ def node_get(name=None):
 
     # In the "workers" mode we only report the names of each enabled node.
     if request.args.get("mode") == "workers":
-        workers = []
-        for node in nodes.values():
-            if not node["enabled"]:
-                continue
-
-            workers.append(node["name"])
-
+        workers = [node["name"] for node in nodes.values() if node["enabled"]]
         return " ".join(sorted(workers))
 
     return jsonify(success=True, nodes=nodes)
@@ -200,9 +193,8 @@ def task_list():
     if limit is not None:
         q = q.limit(int(limit))
 
-    tasks = {}
-    for task in q.all():
-        tasks[task.id] = dict(
+    tasks = {
+        task.id: dict(
             id=task.id,
             path=task.path,
             filename=task.filename,
@@ -225,6 +217,9 @@ def task_list():
             started=task.started,
             completed=task.completed,
         )
+        for task in q.all()
+    }
+
     return jsonify(success=True, tasks=tasks)
 
 @blueprint.route("/task", methods=["POST"])
@@ -259,13 +254,12 @@ def task_post():
 
     task = Task(path=path, filename=os.path.basename(f.filename), **kwargs)
 
-    node = request.form.get("node")
-    if node:
-        node = Node.query.filter_by(name=node, enabled=True).first()
-        if not node:
-            return json_error(404, "Node not found")
-        task.assign_node(node.id)
+    if node := request.form.get("node"):
+        if node := Node.query.filter_by(name=node, enabled=True).first():
+            task.assign_node(node.id)
 
+        else:
+            return json_error(404, "Node not found")
     db.session.add(task)
     db.session.commit()
     return jsonify(success=True, task_id=task.id)
@@ -309,7 +303,7 @@ def task_delete(task_id, commit=True):
     # Remove all available reports.
     dirpath = os.path.join(settings.reports_directory, "%d" % task_id)
     for report_format in settings.report_formats:
-        path = os.path.join(dirpath, "report.%s" % report_format)
+        path = os.path.join(dirpath, f"report.{report_format}")
         if os.path.isfile(path):
             os.unlink(path)
 
@@ -349,13 +343,14 @@ def report_get(task_id, report_format="json"):
         return json_error(420, "Task not finished yet")
 
     report_path = os.path.join(
-        settings.reports_directory, "%d" % task_id,
-        "report.%s" % report_format
+        settings.reports_directory, "%d" % task_id, f"report.{report_format}"
     )
-    if not os.path.isfile(report_path):
-        return json_error(404, "Report format not found")
 
-    return send_file(report_path)
+    return (
+        send_file(report_path)
+        if os.path.isfile(report_path)
+        else json_error(404, "Report format not found")
+    )
 
 @blueprint.route("/pcap/<int:task_id>")
 def pcap_get(task_id):
@@ -369,12 +364,12 @@ def pcap_get(task_id):
     if task.status != Task.FINISHED:
         return json_error(420, "Task not finished yet")
 
-    pcap_path = os.path.join(settings.reports_directory,
-                             "%s" % task_id, "dump.pcap")
-    if not os.path.isfile(pcap_path):
-        return json_error(404, "Pcap file not found")
-
-    return send_file(pcap_path)
+    pcap_path = os.path.join(settings.reports_directory, f"{task_id}", "dump.pcap")
+    return (
+        send_file(pcap_path)
+        if os.path.isfile(pcap_path)
+        else json_error(404, "Pcap file not found")
+    )
 
 @blueprint.route("/status")
 def status_get():
@@ -400,8 +395,7 @@ def status_get():
     statuses = {}
     for node in Node.query.filter_by(enabled=True).all():
         q = NodeStatus.query.filter_by(name=node.name)
-        status = q.order_by(NodeStatus.timestamp.desc()).first()
-        if status:
+        if status := q.order_by(NodeStatus.timestamp.desc()).first():
             statuses[node.name] = status.status
 
     q = NodeStatus.query.filter_by(name="dist.scheduler")
@@ -485,8 +479,7 @@ def stats_get(end_date=None, end_time=None):
     if request.args.get("nodes"):
         nodes = []
         for node in request.args.get("nodes").split(","):
-            node = Node.query.filter_by(name=node).first()
-            if node:
+            if node := Node.query.filter_by(name=node).first():
                 nodes.append(node)
     else:
         nodes = Node.query.filter_by(enabled=True).all()
@@ -525,7 +518,7 @@ def _summarize_task_uncompleted(end_date, steps, nodes):
             "points": []
         }
 
-        for x in range(step.get("times")):
+        for _ in range(step.get("times")):
             later = past + datetime.timedelta(minutes=step.get("step"))
 
             # Find all submissions that are not completed yet/still queued.
@@ -576,7 +569,7 @@ def _summarize_task_completed(end_date, steps, nodes):
             "points": []
         }
 
-        for x in range(step.get("times")):
+        for _ in range(step.get("times")):
             later = past + datetime.timedelta(minutes=step.get("step"))
 
             # Find completed tasks between date ranges
@@ -620,11 +613,13 @@ def _summarize_disk_usage(end_date, steps, nodes):
     # storage volume
     storage_nodes = {}
     for node in nodes:
-        node_status = NodeStatus.query.filter(
-            NodeStatus.name == node.name
-        ).order_by(NodeStatus.timestamp.desc()).first()
-
-        if node_status:
+        if (
+            node_status := NodeStatus.query.filter(
+                NodeStatus.name == node.name
+            )
+            .order_by(NodeStatus.timestamp.desc())
+            .first()
+        ):
             storage_nodes[node.name] = {
                 disk_n: {
                     "total": val["total"]
@@ -651,7 +646,7 @@ def _summarize_disk_usage(end_date, steps, nodes):
             for node in nodes
         }
 
-        for x in range(step.get("times")):
+        for _ in range(step.get("times")):
             later = past + datetime.timedelta(minutes=step.get("step"))
 
             for node in nodes:
@@ -680,7 +675,7 @@ def _summarize_disk_usage(end_date, steps, nodes):
                 time_key = later.strftime("%Y-%m-%d %H:%M:%S")
                 current = results[step_name][node.name]["points"]
                 for st_name, val in status.get("diskspace").iteritems():
-                    storage_name = "%s_used" % st_name
+                    storage_name = f"{st_name}_used"
 
                     if storage_name not in current:
                         current[storage_name] = []
@@ -704,11 +699,13 @@ def _summarize_vms_running(end_date, steps, nodes):
     vm_count = 0
     # Determine the total current VMs
     for node in nodes:
-        node_status = NodeStatus.query.filter(
-            NodeStatus.name == node.name
-        ).order_by(NodeStatus.timestamp.desc()).first()
-
-        if node_status:
+        if (
+            node_status := NodeStatus.query.filter(
+                NodeStatus.name == node.name
+            )
+            .order_by(NodeStatus.timestamp.desc())
+            .first()
+        ):
             vm_count += node_status.status["machines"].get("total")
 
     for step_name, step in steps.iteritems():
@@ -727,7 +724,7 @@ def _summarize_vms_running(end_date, steps, nodes):
         }
         max_running = 0
 
-        for x in range(step.get("times")):
+        for _ in range(step.get("times")):
             later = past + datetime.timedelta(minutes=step.get("step"))
             running = None
 
@@ -807,7 +804,7 @@ def _summarize_cpu_usage(end_date, steps, nodes):
             for node in nodes
         }
 
-        for x in range(step.get("times")):
+        for _ in range(step.get("times")):
             later = past + datetime.timedelta(minutes=step.get("step"))
 
             for node in nodes:
@@ -875,7 +872,7 @@ def _summarize_ram_usage(end_date, steps, nodes):
             for node in nodes
         }
 
-        for x in range(step.get("times")):
+        for _ in range(step.get("times")):
             later = past + datetime.timedelta(minutes=step.get("step"))
 
             for node in nodes:

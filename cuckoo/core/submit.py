@@ -35,9 +35,7 @@ class SubmitManager(object):
             try:
                 filedata = VirusTotalAPI().hash_fetch(line)
             except CuckooOperationalError as e:
-                submit["errors"].append(
-                    "Error retrieving file hash: %s" % e
-                )
+                submit["errors"].append(f"Error retrieving file hash: {e}")
                 return
 
             filepath = Files.create(tmppath, line, filedata)
@@ -190,9 +188,7 @@ class SubmitManager(object):
                     }
                 })
             else:
-                raise RuntimeError(
-                    "Unknown data entry type: %s" % data["type"]
-                )
+                raise RuntimeError(f'Unknown data entry type: {data["type"]}')
 
         return files, submit.data["errors"], submit.data["options"]
 
@@ -263,9 +259,9 @@ class SubmitManager(object):
                 )
                 if not os.path.exists(arcpath):
                     submit.data["errors"].append(
-                        "Unable to find parent archive file: %s" %
-                        os.path.basename(info["arcname"])
+                        f'Unable to find parent archive file: {os.path.basename(info["arcname"])}'
                     )
+
                     continue
 
                 arc = sflock.zipify(sflock.unpack(
@@ -287,9 +283,9 @@ class SubmitManager(object):
                 )
                 if not os.path.exists(arcpath):
                     submit.data["errors"].append(
-                        "Unable to find parent archive file: %s" %
-                        os.path.basename(info["arcname"])
+                        f'Unable to find parent archive file: {os.path.basename(info["arcname"])}'
                     )
+
                     continue
 
                 content = sflock.unpack(arcpath).read(info["extrpath"][:-1])
@@ -346,9 +342,9 @@ class SubmitManager(object):
             info = json.loads(z.read("task.json"))
             for key, type_ in required_fields.items():
                 if key not in info:
-                    raise ValueError("missing %s" % key)
+                    raise ValueError(f"missing {key}")
                 if info[key] is not None and not isinstance(info[key], type_):
-                    raise ValueError("%s => %s" % (key, info[key]))
+                    raise ValueError(f"{key} => {info[key]}")
         except ValueError as e:
             raise CuckooOperationalError(
                 "The provided task.json file, required for properly importing "

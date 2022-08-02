@@ -52,8 +52,9 @@ def cwd(*args, **kwargs):
         return _root
     elif kwargs.get("analysis"):
         return os.path.join(
-            _root, "storage", "analyses", "%s" % kwargs["analysis"], *args
+            _root, "storage", "analyses", f'{kwargs["analysis"]}', *args
         )
+
     elif kwargs:
         raise RuntimeError(
             "Invalid arguments provided to cwd(): %r %r" % (args, kwargs)
@@ -99,9 +100,7 @@ def mkdir(*args):
         os.mkdir(dirpath)
 
 def getuser():
-    if HAVE_PWD:
-        return pwd.getpwuid(os.getuid())[0]
-    return ""
+    return pwd.getpwuid(os.getuid())[0] if HAVE_PWD else ""
 
 def load_signatures():
     """Loads additional Signatures from the Cuckoo Working Directory.
@@ -190,9 +189,12 @@ def is_macosx():
 def Popen(*args, **kwargs):
     """Drops the close_fds argument on Windows platforms in certain situations
     where it'd otherwise cause an exception from the subprocess module."""
-    if is_windows() and "close_fds" in kwargs:
-        if "stdin" in kwargs or "stdout" in kwargs or "stderr" in kwargs:
-            kwargs.pop("close_fds")
+    if (
+        is_windows()
+        and "close_fds" in kwargs
+        and ("stdin" in kwargs or "stdout" in kwargs or "stderr" in kwargs)
+    ):
+        kwargs.pop("close_fds")
 
     return subprocess.Popen(*args, **kwargs)
 
@@ -213,15 +215,15 @@ def drop_privileges(username):
         os.setuid(user.pw_uid)
         os.putenv("HOME", user.pw_dir)
     except KeyError:
-        sys.exit("Invalid user specified to drop privileges to: %s" % username)
+        sys.exit(f"Invalid user specified to drop privileges to: {username}")
     except OSError as e:
-        sys.exit("Failed to drop privileges to %s: %s" % (username, e))
+        sys.exit(f"Failed to drop privileges to {username}: {e}")
 
 class Pidfile(object):
     def __init__(self, name):
         """Manage pidfile of given name."""
         self.name = name
-        self.filepath = cwd("pidfiles", "%s.pid" % name)
+        self.filepath = cwd("pidfiles", f"{name}.pid")
         self.pid = None
 
     def create(self):
@@ -236,9 +238,11 @@ class Pidfile(object):
 
     def exists(self):
         """Check if a pidfile (and its associated process) exists."""
-        if not os.path.exists(self.filepath):
-            return False
-        return self.proc_exists(self.read())
+        return (
+            self.proc_exists(self.read())
+            if os.path.exists(self.filepath)
+            else False
+        )
 
     def read(self):
         """Read PID from pidfile."""
@@ -288,18 +292,16 @@ class Pidfile(object):
         return pids
 
 def make_list(obj):
-    if isinstance(obj, (tuple, list)):
-        return list(obj)
-    return [obj]
+    return list(obj) if isinstance(obj, (tuple, list)) else [obj]
 
 def format_command(*args):
     raw = cwd(raw=True)
-    if raw == "." or raw == "~/.cuckoo":
+    if raw in [".", "~/.cuckoo"]:
         command = "cuckoo "
     elif " " in raw or "'" in raw:
         command = 'cuckoo --cwd "%s" ' % raw
     else:
-        command = "cuckoo --cwd %s " % raw
+        command = f"cuckoo --cwd {raw} "
     return command + " ".join(args)
 
 class Structure(ctypes.Structure):
@@ -309,12 +311,10 @@ class Structure(ctypes.Structure):
             value = getattr(self, field)
             if isinstance(value, Structure):
                 ret[field] = value.as_dict()
-            elif hasattr(value, "value"):
+            elif hasattr(value, "value") or not hasattr(value, "__getitem__"):
                 ret[field] = value
-            elif hasattr(value, "__getitem__"):
-                ret[field] = value[:]
             else:
-                ret[field] = value
+                ret[field] = value[:]
         return ret
 
 def get_free_disk(path):

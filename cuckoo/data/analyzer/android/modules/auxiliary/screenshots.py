@@ -37,22 +37,20 @@ class Screenshots(Auxiliary, Thread):
             time.sleep(SHOT_DELAY)
 
             try:
-                filename = "screenshot%s.jpg" % str(img_counter)
+                filename = f"screenshot{str(img_counter)}.jpg"
                 img_current = take_screenshot(filename)
-                if img_last:
-                    if Screenshot().equal(img_last, img_current):
-                        continue
+                if img_last and Screenshot().equal(img_last, img_current):
+                    continue
 
-                file = open(img_current, 'r')
-                tmpio = StringIO.StringIO(file.read())
-                # now upload to host from the StringIO
-                nf = NetlogFile("shots/%s.jpg" % str(img_counter).rjust(4, "0"))
+                with open(img_current, 'r') as file:
+                    tmpio = StringIO.StringIO(file.read())
+                                # now upload to host from the StringIO
+                    nf = NetlogFile(f'shots/{str(img_counter).rjust(4, "0")}.jpg')
 
-                for chunk in tmpio:
-                    nf.sock.sendall(chunk)
+                    for chunk in tmpio:
+                        nf.sock.sendall(chunk)
 
-                nf.close()
-                file.close()
+                    nf.close()
                 img_counter += 1
                 img_last = img_current
 

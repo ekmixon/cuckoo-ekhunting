@@ -31,7 +31,7 @@ def ipconnections(target, **kwargs):
     cmd += ["-s", path_for_script("ipconnections.d")]
     cmd += ["-o", output_file.name]
     if "args" in kwargs:
-        line = "%s %s" % (sanitize_path(target), " ".join(kwargs["args"]))
+        line = f'{sanitize_path(target)} {" ".join(kwargs["args"])}'
         cmd += ["-c", line]
     else:
         cmd += ["-c", sanitize_path(target)]

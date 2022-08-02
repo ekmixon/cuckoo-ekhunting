@@ -25,10 +25,8 @@ def upload_to_host(file_path, dump_path, pids=[]):
         nc.init(dump_path, file_path, pids)
 
         infd = open(file_path, "rb")
-        buf = infd.read(BUFSIZE)
-        while buf:
+        while buf := infd.read(BUFSIZE):
             nc.send(buf, retry=False)
-            buf = infd.read(BUFSIZE)
     except Exception as e:
         log.error("Exception uploading file %r to host: %s", file_path, e)
     finally:
@@ -154,7 +152,7 @@ class Files(object):
             log.info("Error dumping file from path \"%s\": %s", filepath, e)
             return
 
-        filename = "%s_%s" % (sha256[:16], os.path.basename(filepath))
+        filename = f"{sha256[:16]}_{os.path.basename(filepath)}"
         upload_path = os.path.join("files", filename)
 
         try:

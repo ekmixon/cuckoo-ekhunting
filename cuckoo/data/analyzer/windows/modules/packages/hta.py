@@ -17,7 +17,7 @@ class HTA(Package):
 
         # Enforce .hta extension.
         if not path.endswith(".hta"):
-            os.rename(path, path + ".hta")
+            os.rename(path, f"{path}.hta")
             path += ".hta"
 
         return self.execute(mshta, args=[path])

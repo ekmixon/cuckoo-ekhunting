@@ -28,11 +28,11 @@ class Dll(Package):
         # and rename it. This is needed for rundll32 to execute correctly.
         # See ticket #354 for details.
         if ext != ".dll":
-            new_path = path + ".dll"
+            new_path = f"{path}.dll"
             os.rename(path, new_path)
             path = new_path
 
-        args = ["%s,%s" % (path, function)]
+        args = [f"{path},{function}"]
         if arguments:
             args += shlex.split(arguments)
 

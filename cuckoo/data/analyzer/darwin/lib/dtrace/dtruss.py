@@ -39,11 +39,7 @@ def dtruss(target, **kwargs):
     else:
         watch_specific_syscall = False
 
-    if "run_as_root" in kwargs:
-        run_as_root = kwargs["run_as_root"]
-    else:
-        run_as_root = False
-
+    run_as_root = kwargs.get("run_as_root", False)
     # When we don't want to run the target as root, we have to drop privileges
     # with `sudo -u current_user` right before calling the target.
     if not run_as_root:

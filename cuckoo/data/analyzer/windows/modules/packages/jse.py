@@ -20,8 +20,8 @@ class JScript(Package):
 
         # Enforce the .jse file extension as is required by wscript.
         if not path.endswith(".jse"):
-            os.rename(path, path + ".jse")
+            os.rename(path, f"{path}.jse")
             path += ".jse"
             log.info("Submitted file is missing extension, added .jse")
 
-        return self.execute(wscript, args=[path], trigger="file:%s" % path)
+        return self.execute(wscript, args=[path], trigger=f"file:{path}")

@@ -27,7 +27,7 @@ class Zip(Package):
         if self.is_overwritten(zip_path):
             log.debug("ZIP file contains a file with the same name, original is going to be overwrite")
             # TODO: add random string.
-            new_zip_path = zip_path + ".old"
+            new_zip_path = f"{zip_path}.old"
             shutil.move(zip_path, new_zip_path)
             zip_path = new_zip_path
 
@@ -57,11 +57,7 @@ class Zip(Package):
         """
         with ZipFile(zip_path, "r") as archive:
             try:
-                # Test if zip file contains a file named as itself.
-                for name in archive.namelist():
-                    if name == os.path.basename(zip_path):
-                        return True
-                return False
+                return any(name == os.path.basename(zip_path) for name in archive.namelist())
             except BadZipfile:
                 raise CuckooPackageError("Invalid Zip file")
 

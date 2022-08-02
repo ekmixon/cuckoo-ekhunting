@@ -31,7 +31,7 @@ machine_columns = (
 def upgrade():
     conn = op.get_bind()
 
-    if conn.engine.driver == "psycopg2" or conn.engine.driver == "mysqldb":
+    if conn.engine.driver in ["psycopg2", "mysqldb"]:
         machines = conn.execute(
             "SELECT id, resultserver_port FROM machines"
         ).fetchall()
@@ -55,8 +55,9 @@ def upgrade():
             )
     elif conn.engine.driver == "pysqlite":
         old_machines = conn.execute(
-            "SELECT %s FROM machines" % ",".join(machine_columns)
+            f'SELECT {",".join(machine_columns)} FROM machines'
         ).fetchall()
+
 
         machines = []
         for machine in old_machines:

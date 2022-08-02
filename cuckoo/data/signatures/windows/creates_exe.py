@@ -21,7 +21,6 @@ class CreatesExe(Signature):
     enabled = False
 
     def on_complete(self):
-        match = self.check_file(pattern=".*\\.exe$", regex=True)
-        if match:
+        if match := self.check_file(pattern=".*\\.exe$", regex=True):
             self.mark_ioc("file", match)
             return True

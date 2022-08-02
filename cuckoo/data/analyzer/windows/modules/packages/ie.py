@@ -99,17 +99,21 @@ class IE(Package):
     def setup_proxy(self, proxy_host):
         """Configure Internet Explorer to route all traffic through a
         proxy."""
-        self.init_regkeys([[
-            HKEY_CURRENT_USER,
-            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
-            {
-                "MigrateProxy": 1,
-                "ProxyEnable": 1,
-                "ProxyHttp1.1": 0,
-                "ProxyServer": "http://%s" % proxy_host,
-                "ProxyOverride": "<local>",
-            },
-        ]])
+        self.init_regkeys(
+            [
+                [
+                    HKEY_CURRENT_USER,
+                    "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+                    {
+                        "MigrateProxy": 1,
+                        "ProxyEnable": 1,
+                        "ProxyHttp1.1": 0,
+                        "ProxyServer": f"http://{proxy_host}",
+                        "ProxyOverride": "<local>",
+                    },
+                ]
+            ]
+        )
 
     def start(self, target):
         if "proxy" in self.options:
@@ -117,13 +121,16 @@ class IE(Package):
 
         # If it's a HTML file, force an extension, or otherwise Internet
         # Explorer will open it as a text file or something else non-html.
-        if isinstance(target, (basestring, str)):
-            if os.path.exists(target) and not target.endswith(
-                    (".htm", ".html", ".mht", ".mhtml", ".url", ".swf")
-            ):
-                os.rename(target, target + ".html")
-                target += ".html"
-                log.info("Submitted file is missing extension, adding .html")
+        if (
+            isinstance(target, (basestring, str))
+            and os.path.exists(target)
+            and not target.endswith(
+                (".htm", ".html", ".mht", ".mhtml", ".url", ".swf")
+            )
+        ):
+            os.rename(target, f"{target}.html")
+            target += ".html"
+            log.info("Submitted file is missing extension, adding .html")
 
         if not isinstance(target, (list, tuple)):
             target = [target]
@@ -132,13 +139,12 @@ class IE(Package):
 
         pids = []
         for url in target:
-            pid = self.execute(
+            if pid := self.execute(
                 iexplore,
-                args=["-noframemerging", "-private", url], maximize=True,
-                mode="iexplore"
-            )
-
-            if pid:
+                args=["-noframemerging", "-private", url],
+                maximize=True,
+                mode="iexplore",
+            ):
                 pids.append(pid)
                 self.pids_targets[pid] = url
 

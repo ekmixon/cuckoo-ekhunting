@@ -22,14 +22,14 @@ class Reboot(Auxiliary):
         for line in open(reboot_path, "rb"):
             event = json.loads(line)
 
-            if not hasattr(self, "_handle_%s" % event["category"]):
+            if not hasattr(self, f'_handle_{event["category"]}'):
                 log.warning(
                     "Unable to handle reboot event with name %s as it has "
                     "not yet been implemented.", event["category"]
                 )
                 continue
 
-            getattr(self, "_handle_%s" % event["category"])(event)
+            getattr(self, f'_handle_{event["category"]}')(event)
 
     def _handle_regkey_written(self, event):
         regkey, type_, value = event["args"]

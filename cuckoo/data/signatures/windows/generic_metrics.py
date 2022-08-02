@@ -40,9 +40,4 @@ class SystemMetrics(Signature):
     def on_call(self, call, pid, tid):
         # This check would in reality not be needed as we already make use
         # of filter_apinames above.
-        if call["api"] == "GetSystemMetrics":
-            # Signature matched, return True.
-            return True
-
-        # continue
-        return None
+        return True if call["api"] == "GetSystemMetrics" else None

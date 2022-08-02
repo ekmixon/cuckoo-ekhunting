@@ -32,26 +32,20 @@ class Driver(object):
 
     def copy_driver(self):
         if platform.machine().endswith("64"):
-            self.driver_path = os.path.join(
-                "bin", "%s-x64.sys" % self.driver_name
-            )
+            self.driver_path = os.path.join("bin", f"{self.driver_name}-x64.sys")
             install_dir = os.path.expandvars(
                 "%SystemRoot%\\sysnative\\drivers"
             )
         else:
-            self.driver_path = os.path.join(
-                "bin", "%s-x86.sys" % self.driver_name
-            )
+            self.driver_path = os.path.join("bin", f"{self.driver_name}-x86.sys")
             install_dir = os.path.expandvars(
                 "%SystemRoot%\\system32\\drivers"
             )
 
         if not os.path.exists(self.driver_path):
-            raise CuckooError("Error locating %s driver!" % self.driver_name)
+            raise CuckooError(f"Error locating {self.driver_name} driver!")
 
-        self.install_path = os.path.join(
-            install_dir, "%s.sys" % self.install_name
-        )
+        self.install_path = os.path.join(install_dir, f"{self.install_name}.sys")
 
         shutil.copy(self.driver_path, self.install_path)
 

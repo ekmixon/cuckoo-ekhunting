@@ -38,8 +38,9 @@ class CuckooFeedback(object):
             return
 
         feedback = CuckooFeedbackObject(
-            automated=True, message="Exception encountered: %s" % exception
+            automated=True, message=f"Exception encountered: {exception}"
         )
+
 
         if isinstance(exception, self.exc_whitelist):
             log.debug("A whitelisted exception occurred: %s", exception)
@@ -52,9 +53,7 @@ class CuckooFeedback(object):
 
         from django.template import TemplateSyntaxError, TemplateDoesNotExist
         if isinstance(exception, (TemplateSyntaxError, TemplateDoesNotExist)):
-            feedback.add_error(
-                "A Django-related exception occurred: %s" % exception
-            )
+            feedback.add_error(f"A Django-related exception occurred: {exception}")
 
         feedback.add_traceback()
 
@@ -104,8 +103,9 @@ class CuckooFeedback(object):
         if include_files:
             if not task_id or not isinstance(task_id, int):
                 raise CuckooFeedbackError(
-                    "An incorrect Task ID has been provided: %s!" % task_id
+                    f"An incorrect Task ID has been provided: {task_id}!"
                 )
+
 
             feedback.include_report_web(task_id)
 
@@ -115,14 +115,9 @@ class CuckooFeedback(object):
         try:
             feedback.validate()
         except CuckooFeedbackError as e:
-            raise CuckooFeedbackError(
-                "Could not validate feedback object: %s" % e
-            )
+            raise CuckooFeedbackError(f"Could not validate feedback object: {e}")
 
-        headers = {
-            "Accept": "application/json",
-            "User-Agent": "Cuckoo %s" % version
-        }
+        headers = {"Accept": "application/json", "User-Agent": f"Cuckoo {version}"}
 
         try:
             r = requests.post(
@@ -140,13 +135,9 @@ class CuckooFeedback(object):
                 raise CuckooFeedbackError(obj["message"])
             return obj["feedback_id"]
         except requests.RequestException as e:
-            raise CuckooFeedbackError(
-                "Invalid response from Cuckoo feedback server: %s" % e
-            )
+            raise CuckooFeedbackError(f"Invalid response from Cuckoo feedback server: {e}")
         except CuckooFeedbackError as e:
-            raise CuckooFeedbackError(
-                "Cuckoo feedback error while trying to send: %s" % e
-            )
+            raise CuckooFeedbackError(f"Cuckoo feedback error while trying to send: {e}")
 
 class CuckooFeedbackObject(object):
     """Feedback object."""
@@ -218,9 +209,7 @@ class CuckooFeedbackObject(object):
         try:
             validate_email(self.contact["email"])
         except ValidationError:
-            raise CuckooFeedbackError(
-                "Invalid email address: %s!" % self.contact["email"]
-            )
+            raise CuckooFeedbackError(f'Invalid email address: {self.contact["email"]}!')
 
         if not self.message:
             raise CuckooFeedbackError("Missing feedback message")

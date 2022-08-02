@@ -61,7 +61,7 @@ class Scheduler(object):
         try:
             self.machinery.initialize(machinery_name)
         except CuckooMachineError as e:
-            raise CuckooCriticalError("Error initializing machines: %s" % e)
+            raise CuckooCriticalError(f"Error initializing machines: {e}")
 
         # At this point all the available machines should have been identified
         # and added to the list. If none were found, Cuckoo aborts the
@@ -121,9 +121,12 @@ class Scheduler(object):
             if config("routing:vpn:enabled"):
                 for vpn in config("routing:vpn:vpns"):
                     rooter(
-                        "forward_disable", machine.interface,
-                        config("routing:%s:interface" % vpn), machine.ip
+                        "forward_disable",
+                        machine.interface,
+                        config(f"routing:{vpn}:interface"),
+                        machine.ip,
                     )
+
 
             # Drop forwarding rule to the internet / dirty line.
             if config("routing:routing:internet") != "none":
@@ -389,8 +392,7 @@ class Scheduler(object):
 
             if manager.action_requested():
                 status = manager.get_analysis_status()
-                status_action = getattr(manager, "on_status_%s" % status, None)
-                if status_action:
+                if status_action := getattr(manager, f"on_status_{status}", None):
                     log.debug(
                         "Executing requested action by task #%s for status"
                         " '%s'", manager.task.id, status
@@ -441,12 +443,12 @@ class Scheduler(object):
             # Handle pending tasks by finding the matching machine and
             # analysis manager. The manager is started added to tracked
             # analysis managers.
-            if self.db.count_tasks(status=TASK_PENDING):
-                # Check if the max amount of VMs are running, if there is
-                # enough disk space, etc.
-                if self.ready_for_new_run():
-                    # Grab a pending task, find a machine that matches, find
-                    # a matching analysis manager and start the analysis.
-                    self.handle_pending()
+            if (
+                self.db.count_tasks(status=TASK_PENDING)
+                and self.ready_for_new_run()
+            ):
+                # Grab a pending task, find a machine that matches, find
+                # a matching analysis manager and start the analysis.
+                self.handle_pending()
 
         log.debug("End of analyses.")

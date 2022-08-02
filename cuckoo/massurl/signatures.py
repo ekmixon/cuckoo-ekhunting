@@ -20,11 +20,7 @@ _rules = {
 }
 
 def cleanup_sig(content):
-    clean = []
-    for key, values in content.iteritems():
-        if not values:
-            clean.append(key)
-
+    clean = [key for key, values in content.iteritems() if not values]
     for k in clean:
         del content[k]
 
@@ -69,10 +65,9 @@ def verify_sig(content):
     return content
 
 def run_signature(signature, newsince=None, size=50, offset=0):
-    diary_rules = {}
-    for key in _diary_fields:
-        if key in signature:
-            diary_rules[key] = signature.get(key)
+    diary_rules = {
+        key: signature.get(key) for key in _diary_fields if key in signature
+    }
 
     diaries = []
     if diary_rules:
@@ -94,8 +89,8 @@ def run_signature(signature, newsince=None, size=50, offset=0):
 
     requestlog_query = build_query(requestrules)
 
-    ignore_diaries = []
     if diaries:
+        ignore_diaries = []
         for diary_id in diaries:
             logs = URLDiaries.search_requestlog(
                 requestlog_query, return_fields="parent", size=1,
@@ -111,7 +106,7 @@ def run_signature(signature, newsince=None, size=50, offset=0):
             requestlog_query, return_fields="parent", size=size, offset=offset,
             since=newsince
         )
-        diaries = list(set(match.get("parent") for match in diaries))
+        diaries = list({match.get("parent") for match in diaries})
 
     return diaries
 
@@ -121,4 +116,4 @@ def match_diaries(diary_query, newsince=None, size=50, offset=None):
         return_fields="url"
     )
 
-    return list(set(match.get("id") for match in diaries))
+    return list({match.get("id") for match in diaries})

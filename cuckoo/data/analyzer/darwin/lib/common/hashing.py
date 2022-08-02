@@ -14,8 +14,8 @@ def hash_file(method, path):
     f = open(path, "rb")
     h = method()
     while True:
-        buf = f.read(BUFSIZE)
-        if not buf:
+        if buf := f.read(BUFSIZE):
+            h.update(buf)
+        else:
             break
-        h.update(buf)
     return h.hexdigest()

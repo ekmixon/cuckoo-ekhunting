@@ -23,7 +23,7 @@ def apicalls(target, **kwargs):
         raise Exception("Invalid target for apicalls()")
 
     output_file = NamedTemporaryFile()
-    kwargs.update({"output_file" : output_file})
+    kwargs["output_file"] = output_file
     cmd = _dtrace_command_line(target, **kwargs)
 
     # Generate dtrace probes for analysis
@@ -66,13 +66,13 @@ def _dtrace_command_line(target, **kwargs):
     run_as_root = kwargs.get("run_as_root", False)
 
     if "args" in kwargs:
-        target_cmd = "%s %s" % (sanitize_path(target), " ".join(kwargs["args"]))
+        target_cmd = f'{sanitize_path(target)} {" ".join(kwargs["args"])}'
     else:
         target_cmd = sanitize_path(target)
     # When we don't want to run the target as root, we have to drop privileges
     # with `sudo -u current_user` right before calling the target.
     if not run_as_root:
-        target_cmd = "sudo -u %s %s" % (getuser(), target_cmd)
+        target_cmd = f"sudo -u {getuser()} {target_cmd}"
         cmd += ["-DSUDO=1"]
     cmd += ["-c", target_cmd]
     return cmd

@@ -106,9 +106,9 @@ class MassURL(AnalysisManager):
         blocksize = int(self.task.options.get(
             "urlblocksize", self.URL_BLOCKSIZE
         ))
-        self.targets = []
-        for i in range(0, len(targets), blocksize):
-            self.targets.append(targets[i:i + blocksize])
+        self.targets = [
+            targets[i : i + blocksize] for i in range(0, len(targets), blocksize)
+        ]
 
     def new_target_block(self):
         block = {}
@@ -379,30 +379,27 @@ class MassURL(AnalysisManager):
         self.tlskeys_response = None
         self.realtime_error = False
         self.js_events = []
-        wait_for = set()
-
         # Tell onemon to process results.
         self.ev_client.send_event(
             "massurltask", body={
                 "taskid": self.task.id
             }
         )
-        wait_for.add("massurltask")
-
+        wait_for = {"massurltask"}
         # If IE was used, TLS master secrets van be extracted.
         # If not package is supplied, the analyzer will use IE.
-        if not self.task.package or self.task.package.lower() == "ie":
-            if config("massurl:massurl:extract_tls"):
-                lsass_pid = get_lsass_pids(self.task.id)
-                if lsass_pid:
-                    log.debug(
-                        "Running TLS key extraction for task #%s", self.task.id
-                    )
-                    self.ev_client.send_event(
-                        "dumptls",
-                        {"taskid": self.task.id, "lsass_pid": lsass_pid}
-                    )
-                    wait_for.add("dumptls")
+        if (not self.task.package or self.task.package.lower() == "ie") and config(
+            "massurl:massurl:extract_tls"
+        ):
+            if lsass_pid := get_lsass_pids(self.task.id):
+                log.debug(
+                    "Running TLS key extraction for task #%s", self.task.id
+                )
+                self.ev_client.send_event(
+                    "dumptls",
+                    {"taskid": self.task.id, "lsass_pid": lsass_pid}
+                )
+                wait_for.add("dumptls")
 
         waited = 0
         while wait_for and not self.realtime_error:
@@ -446,13 +443,14 @@ class MassURL(AnalysisManager):
             len(self.detection_events), self.task.id
         )
         # Collect all triggered signatures from the queue
-        sigs = []
-        for ev in self.detection_events:
-            sigs.append({
+        sigs = [
+            {
                 "signature": ev.get("signature"),
                 "description": ev.get("description"),
-                "ioc": ev.get("ioc")
-            })
+                "ioc": ev.get("ioc"),
+            }
+            for ev in self.detection_events
+        ]
 
         # A signature was triggered while only a single URL was opened. Update
         # and store the URL diary, and send a detection event.
@@ -515,12 +513,14 @@ class MassURL(AnalysisManager):
             )
             try:
                 self.ev_client.send_event(
-                    "massurltaskfailure", {
+                    "massurltaskfailure",
+                    {
                         "taskid": self.task.id,
-                        "error": "%s" % traceback.format_exc(4),
-                        "status": self.analysis.status
-                    }
+                        "error": f"{traceback.format_exc(4)}",
+                        "status": self.analysis.status,
+                    },
                 )
+
             except Exception as e:
                 log.exception("Failed to send failure notification event")
 
@@ -614,9 +614,7 @@ class MassURL(AnalysisManager):
 
         js = message["body"]
         meta = js.get("meta") if js.get("meta") != "no context" else None
-        code = js.get("code")
-
-        if code:
+        if code := js.get("code"):
             self.js_events.append((js.get("pid"), js.get("ppid"), code))
 
         if meta:
@@ -628,11 +626,10 @@ class MassURL(AnalysisManager):
         if not task_id or task_id != self.task.id:
             return
 
-        action = message["body"].get("action")
-        if not action:
+        if action := message["body"].get("action"):
+            self.realtime_finished.add(action)
+        else:
             return
-
-        self.realtime_finished.add(action)
 
     def on_status_failed(self, db):
         """The mass url analysis failed"""
@@ -718,9 +715,6 @@ def get_lsass_pids(task_id):
             n = int(pid_ext[0])
         except ValueError:
             continue
-        if n < 1000:
-            if not pid:
-                pid = n
-            elif n < pid:
-                pid = n
+        if n < 1000 and (not pid or n < pid):
+            pid = n
     return pid

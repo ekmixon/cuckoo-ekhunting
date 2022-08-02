@@ -59,7 +59,7 @@ class Macalyzer(object):
 
         # Initialize Auxiliary modules
         Auxiliary()
-        prefix = auxiliary.__name__ + "."
+        prefix = f"{auxiliary.__name__}."
         for loader, name, ispkg in pkgutil.iter_modules(auxiliary.__path__, prefix):
             if ispkg:
                 continue
@@ -147,7 +147,7 @@ class Macalyzer(object):
         except IOError as e:
             self.log.info("Error dumping file from path \"%s\": %s", filepath, e)
             return
-        filename = "%s_%s" % (hashsum[:16], os.path.basename(filepath))
+        filename = f"{hashsum[:16]}_{os.path.basename(filepath)}"
         upload_path = os.path.join("files", filename)
 
         try:

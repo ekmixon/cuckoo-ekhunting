@@ -18,10 +18,8 @@ def upload_to_host(file_path, dump_path):
         nc = NetlogFile(dump_path)
 
         infd = open(file_path, "rb")
-        buf = infd.read(BUFSIZE)
-        while buf:
+        while buf := infd.read(BUFSIZE):
             nc.send(buf, retry=False)
-            buf = infd.read(BUFSIZE)
     except Exception as e:
         log.error("Exception uploading file %s to host: %s", file_path, e)
     finally:

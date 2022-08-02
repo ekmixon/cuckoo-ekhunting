@@ -249,13 +249,11 @@ def mass_group_add(urls, group_name=None, group_id=None):
             existing_sha256.extend(existing)
 
         existing_sha256 = set(existing_sha256)
-        # Create new entries for URLs that do not exist
-        new_urls = [
+        if new_urls := [
             dict(id=sha256, target=url)
-            for url, sha256 in urls if sha256 not in existing_sha256
-        ]
-
-        if new_urls:
+            for url, sha256 in urls
+            if sha256 not in existing_sha256
+        ]:
             for chunk in get_chunks(new_urls, 5000):
                 db.engine.execute(URL.__table__.insert(), chunk)
 
@@ -273,13 +271,11 @@ def mass_group_add(urls, group_name=None, group_id=None):
             url_in_group.extend(in_group)
 
         url_in_group = set(url_in_group)
-        # Add URLs to the specified group of the do not belong to it yet.
-        group_add = [
+        if group_add := [
             dict(url_id=sha256, url_group_id=group_id)
-            for url, sha256 in urls if not sha256 in url_in_group
-        ]
-
-        if group_add:
+            for url, sha256 in urls
+            if sha256 not in url_in_group
+        ]:
             for chunk in get_chunks(group_add, 5000):
                 db.engine.execute(URLGroupURL.__table__.insert(), chunk)
 
@@ -303,7 +299,7 @@ def delete_url_from_group(targets, group_id, clearall=False):
             )
 
         else:
-            urls = set(URLHashes(url).get_sha256() for url in targets)
+            urls = {URLHashes(url).get_sha256() for url in targets}
             db.engine.execute(
                 URLGroupURL.__table__.delete(
                     synchronize_session=False).where(
@@ -401,10 +397,7 @@ def list_alerts(level=None, url_group_name=None, limit=100, offset=0,
     return alerts
 
 def add_group(name, description, schedule=None):
-    schedule_next = None
-    if schedule:
-        schedule_next = schedule_time_next(schedule)
-
+    schedule_next = schedule_time_next(schedule) if schedule else None
     exists = False
     session = db.Session()
     try:
@@ -551,8 +544,7 @@ def add_profile(name, browser, route, country=None, tags=[]):
         profile.tags.extend(dbtags)
         ses.add(profile)
         ses.commit()
-        profile_id = profile.id
-        return profile_id
+        return profile.id
     except IntegrityError:
         raise KeyError("Profile with name '%s' exists" % name)
     finally:
@@ -662,8 +654,7 @@ def add_signature(name, content, level=1, enabled=False):
     try:
         ses.add(sig)
         ses.commit()
-        sig_id = sig.id
-        return sig_id
+        return sig.id
     except IntegrityError:
         raise KeyError("Signature with name '%s' already exists" % name)
     finally:

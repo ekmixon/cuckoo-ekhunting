@@ -59,9 +59,10 @@ def get_available_routes():
         routes.append("internet")
     if config("routing:vpn:enabled") and config("routing:vpn:vpns"):
         routes.append("vpn")
-    if config("auxiliary:redsocks:enabled"):
-        if Manager().list_socks5(operational=True):
-            routes.append("socks5")
+    if config("auxiliary:redsocks:enabled") and Manager().list_socks5(
+        operational=True
+    ):
+        routes.append("socks5")
 
     return routes
 
@@ -73,16 +74,19 @@ def get_route_countries():
     if config("routing:vpn:enabled"):
         vpn_counties = set()
         for vpn in config("routing:vpn:vpns"):
-            country = config("routing:%s:country" % vpn)
-            if country:
+            if country := config(f"routing:{vpn}:country"):
                 vpn_counties.add(country.lower())
 
         countries["vpn"] = list(vpn_counties)
 
     if config("auxiliary:redsocks:enabled"):
-        countries["socks5"] = list(set(
-            s.country.lower() for s in Manager().list_socks5(operational=True)
-        ))
+        countries["socks5"] = list(
+            {
+                s.country.lower()
+                for s in Manager().list_socks5(operational=True)
+            }
+        )
+
 
     return countries
 #
@@ -149,13 +153,12 @@ def profiles_view():
 def signatures_view():
     sigs = []
     for sig in db.list_signatures():
-        loaded = verify_sig(sig.content)
-        if not loaded:
-            log.error("Invalid JSON in signature '%s'", sig.name)
-        else:
+        if loaded := verify_sig(sig.content):
             sig.content = loaded
             sigs.append(sig.to_dict())
 
+        else:
+            log.error("Invalid JSON in signature '%s'", sig.name)
     return render_template(
         "signatures.html", signatures=sigs
     )
@@ -185,7 +188,7 @@ def list_alerts():
             try:
                 intargs[key] = int(value)
             except ValueError:
-                return json_error(400, "%s should be an integer" % key)
+                return json_error(400, f"{key} should be an integer")
 
     alerts = db.list_alerts(
         level=intargs["level"], url_group_name=url_group_name,
@@ -228,7 +231,7 @@ def delete_alert():
             try:
                 intargs[key] = int(value)
             except ValueError:
-                return json_error(400, "%s should be an integer" % key)
+                return json_error(400, f"{key} should be an integer")
 
     db.delete_alert(
         alert_id=alert, group_name=groupname, level=level, clear=clearall
@@ -251,10 +254,11 @@ def add_group():
         return json_error(400, str(e))
     except KeyError:
         return json_error(409, "Specified group name already exists")
-    if not group_id:
-        return json_error(500, "Error while creating a new group")
-
-    return jsonify(group_id=group_id)
+    return (
+        jsonify(group_id=group_id)
+        if group_id
+        else json_error(500, "Error while creating a new group")
+    )
 
 @app.route("/api/group/schedule/<int:group_id>", methods=["POST"])
 def schedule_group(group_id):
@@ -281,7 +285,7 @@ def schedule_group(group_id):
         schedule_next = datetime.datetime.utcnow() + \
                         datetime.timedelta(seconds=10)
         db.set_schedule_next(group_id, schedule_next)
-        return jsonify(message="Scheduled at %s" % schedule_next)
+        return jsonify(message=f"Scheduled at {schedule_next}")
 
     try:
         schedutil.schedule_time_next(schedule)
@@ -308,17 +312,17 @@ def group_add_url():
 
         group_id = int(group_id)
 
-    urls = filter(None, [url.strip() for url in urls.split(separator)])
-    if not urls:
-        return json_error(400, "No URLs specified")
-
-    group_id = db.mass_group_add(urls, name, group_id)
-    if group_id:
-        return jsonify(
-            message="success",
-            info="Added new URLs to group %s" % group_id
+    if urls := filter(None, [url.strip() for url in urls.split(separator)]):
+        return (
+            jsonify(
+                message="success", info=f"Added new URLs to group {group_id}"
+            )
+            if (group_id := db.mass_group_add(urls, name, group_id))
+            else json_error(404, "Specified group does not exist")
         )
-    return json_error(404, "Specified group does not exist")
+
+    else:
+        return json_error(400, "No URLs specified")
 
 @app.route("/api/group/<int:group_id>/url/add", methods=["POST"])
 def group_bulk_url(group_id):
@@ -332,7 +336,7 @@ def group_bulk_url(group_id):
     if not urldata:
         return json_error(404, "URLs not provided")
 
-    if not urldata.mimetype in ("text/plain"):
+    if urldata.mimetype not in "text/plain":
         return json_error(
             400, "URLs file can only be text/plain. Not %r" % urldata.mimetype
         )
@@ -364,16 +368,17 @@ def view_group(group_id=None, name=None):
     except ValueError:
         return json_error(400, "Invalid value for 'details'. Can be 0 or 1")
 
-    group = db.find_group(name=name, group_id=group_id, details=True)
-    if not group:
-        return json_error(404, "Group not found")
+    if group := db.find_group(name=name, group_id=group_id, details=True):
+        return (
+            jsonify(
+                group.to_dict(additional=["urlcount", "unread", "highalert"])
+            )
+            if details
+            else jsonify(group.to_dict())
+        )
 
-    if details:
-        return jsonify(group.to_dict(
-            additional=["urlcount", "unread", "highalert"]
-        ))
     else:
-        return jsonify(group.to_dict())
+        return json_error(404, "Group not found")
 
 @app.route("/api/group/view/<int:group_id>/urls")
 @app.route("/api/group/view/<name>/urls")
@@ -462,29 +467,36 @@ def list_groups():
             try:
                 intargs[key] = int(value)
             except ValueError:
-                return json_error(400, "%s should be an integer" % key)
+                return json_error(400, f"{key} should be an integer")
 
-    if not intargs.get("details"):
-        return jsonify(
+    return (
+        jsonify(
             [
-                g.to_dict() for g in db.list_groups(
+                g.to_dict(additional=["urlcount", "unread", "highalert"])
+                for g in db.list_groups(
+                    limit=intargs["limit"],
+                    offset=intargs["offset"],
+                    details=True,
+                )
+            ]
+        )
+        if intargs.get("details")
+        else jsonify(
+            [
+                g.to_dict()
+                for g in db.list_groups(
                     limit=intargs["limit"], offset=intargs["offset"]
                 )
             ]
         )
-    else:
-        return jsonify([
-            g.to_dict(additional=["urlcount", "unread", "highalert"])
-            for g in db.list_groups(
-                limit=intargs["limit"], offset=intargs["offset"], details=True
-            )
-        ])
+    )
 
 @app.route("/api/group/<int:group_id>/profiles", methods=["POST"])
 def update_profile_group(group_id):
     profile_ids = filter(
-        None, [p for p in request.form.get("profile_ids", "").split(",")]
+        None, list(request.form.get("profile_ids", "").split(","))
     )
+
 
     try:
         profile_ids = [int(p) for p in profile_ids]
@@ -506,7 +518,7 @@ def update_group_settings(group_id):
             try:
                 intargs[key] = int(value)
             except ValueError:
-                return json_error(400, "%s should be an integer" % key)
+                return json_error(400, f"{key} should be an integer")
 
     db.update_settings_group(
         group_id=group_id, threshold=intargs.get("threshold"),
@@ -528,7 +540,7 @@ def get_diaries_url(url_id):
             try:
                 intargs[key] = int(value)
             except ValueError:
-                return json_error(400, "%s should be an integer" % key)
+                return json_error(400, f"{key} should be an integer")
 
     diary_list = URLDiaries.list_diary_url_id(
         url_id, size=intargs.get("limit"), return_fields="version,datetime",
@@ -555,7 +567,7 @@ def search_diaries():
             try:
                 intargs[key] = int(value)
             except ValueError:
-                return json_error(400, "%s should be an integer" % key)
+                return json_error(400, f"{key} should be an integer")
 
     diary_list = URLDiaries.search_diaries(
         query, return_fields="datetime,url,version", size=intargs.get("limit"),
@@ -567,10 +579,11 @@ def search_diaries():
 @app.route("/api/requestlog/<log_id>")
 def get_request_log(log_id):
     request_log = URLDiaries.get_request_log(log_id)
-    if not request_log:
-        return json_error(404, "The specified request log does not exist")
-
-    return jsonify(request_log)
+    return (
+        jsonify(request_log)
+        if request_log
+        else json_error(404, "The specified request log does not exist")
+    )
 
 @app.route("/api/diary/<diary_id>")
 def get_diary(diary_id):
@@ -578,8 +591,7 @@ def get_diary(diary_id):
     if not diary:
         return json_error(404, "The specified URL diary does not exist")
 
-    browser = diary.get("browser")
-    if browser:
+    if browser := diary.get("browser"):
         diary["browser"] = PACKAGE_BROWSER.get(browser, browser)
 
     return jsonify(diary)
@@ -587,7 +599,7 @@ def get_diary(diary_id):
 @app.route("/api/pcap/<int:task_id>")
 def get_pcap(task_id):
     task_pcap = cwd("dump.pcap", analysis=task_id)
-    moved_pcap = cwd("storage", "files", "pcap", "%s.pcap" % task_id)
+    moved_pcap = cwd("storage", "files", "pcap", f"{task_id}.pcap")
     if os.path.isfile(task_pcap):
         pcap_path = task_pcap
     elif os.path.isfile(moved_pcap):
@@ -601,8 +613,9 @@ def get_pcap(task_id):
         return jsonify(exists=True)
 
     return send_file(
-        pcap_path, attachment_filename="task%s-dump.pcap" % task_id,
-        as_attachment=True
+        pcap_path,
+        attachment_filename=f"task{task_id}-dump.pcap",
+        as_attachment=True,
     )
 
 @app.route("/api/profile/add", methods=["POST"])
@@ -611,7 +624,7 @@ def add_profile():
     browser = request.form.get("browser", "").lower()
     route = request.form.get("route", "").lower()
     country = request.form.get("country", "").lower()
-    tags = filter(None, [p for p in request.form.get("tags", "").split(",")])
+    tags = filter(None, list(request.form.get("tags", "").split(",")))
 
     if not name:
         return json_error(400, "No name provided")
@@ -626,12 +639,15 @@ def add_profile():
                  (route, available_routes)
         )
 
-    if country and route != "internet":
-        if country not in get_route_countries()[route]:
-            return json_error(
-                400, "Route through country %r does not exist for route %r" %
-                     (country, route)
-            )
+    if (
+        country
+        and route != "internet"
+        and country not in get_route_countries()[route]
+    ):
+        return json_error(
+            400, "Route through country %r does not exist for route %r" %
+                 (country, route)
+        )
 
     try:
         tags = [int(t) for t in tags]
@@ -659,7 +675,7 @@ def list_profiles():
             try:
                 intargs[key] = int(value)
             except ValueError:
-                return json_error(400, "%s should be an integer" % key)
+                return json_error(400, f"{key} should be an integer")
 
     return jsonify([p.to_dict() for p in db.list_profiles(
         limit=intargs.get("limit"), offset=intargs.get("offset")
@@ -670,16 +686,18 @@ def list_profiles():
 def find_profile(name=None, profile_id=None):
     profile = db.find_profile(profile_id=profile_id, profile_name=name)
 
-    if not profile:
-        return json_error(404, "Profile not found")
-    return jsonify(profile.to_dict())
+    return (
+        jsonify(profile.to_dict())
+        if profile
+        else json_error(404, "Profile not found")
+    )
 
 @app.route("/api/profile/update/<int:profile_id>", methods=["POST"])
 def update_profile(profile_id):
     browser = request.form.get("browser", "").lower()
     route = request.form.get("route", "").lower()
     country = request.form.get("country", "").lower()
-    tags = filter(None, [p for p in request.form.get("tags", "").split(",")])
+    tags = filter(None, list(request.form.get("tags", "").split(",")))
 
     if browser not in BROWSERS.values():
         return json_error(400, "%r is not a valid browser choice" % browser)
@@ -691,12 +709,15 @@ def update_profile(profile_id):
                  (route, available_routes)
         )
 
-    if country and route != "internet":
-        if country not in get_route_countries()[route]:
-            return json_error(
-                400, "Route through country %r does not exist for route %r" %
-                     (country, route)
-            )
+    if (
+        country
+        and route != "internet"
+        and country not in get_route_countries()[route]
+    ):
+        return json_error(
+            400, "Route through country %r does not exist for route %r" %
+                 (country, route)
+        )
 
     try:
         tags = [int(t) for t in tags]
@@ -727,7 +748,7 @@ def list_signatures():
         try:
             sig.content = json.loads(sig.content)
         except ValueError:
-            return json_error(500, "Invalid signature: %s" % sig.name)
+            return json_error(500, f"Invalid signature: {sig.name}")
 
     return jsonify([sig.to_dict() for sig in signatures])
 
@@ -740,7 +761,7 @@ def add_signature():
     min_keys = ["name", "content", "level", "enabled"]
     for k in min_keys:
         if k not in body:
-            return json_error(400, "Missing key %s" % k)
+            return json_error(400, f"Missing key {k}")
 
     name = body.get("name")
     content = body.get("content")
@@ -776,7 +797,7 @@ def update_signature(signature_id):
     min_keys = ["content", "level", "enabled"]
     for k in min_keys:
         if k not in body:
-            return json_error(400, "Missing key %s" % k)
+            return json_error(400, f"Missing key {k}")
 
     content = body.get("content")
     level = body.get("level", 1)
@@ -836,7 +857,7 @@ def signature_run(signature_id):
             try:
                 intargs[key] = int(value)
             except ValueError:
-                return json_error(400, "%s should be an integer" % key)
+                return json_error(400, f"{key} should be an integer")
 
     signature = db.find_signature(signature_id)
     if not signature:
@@ -849,12 +870,15 @@ def signature_run(signature_id):
     results = run_signature(
         signature, size=intargs.get("limit"), offset=intargs.get("offset")
     )
-    if not results:
-        return jsonify(results)
-
-    return jsonify(URLDiaries.get_diaries(
-        ids=results, return_fields="datetime,url,version"
-    ))
+    return (
+        jsonify(
+            URLDiaries.get_diaries(
+                ids=results, return_fields="datetime,url,version"
+            )
+        )
+        if results
+        else jsonify(results)
+    )
 
 def ws_connect(ws):
     """Websocket connections for alerts are handled here. When a connection

@@ -103,11 +103,7 @@ class URLDiaries(object):
         urldiary.stored = True
         urldiary = urldiary.dump()
         version = cls.get_latest_diary(urldiary.get("url_id"))
-        if version:
-            version = version.get("version", 1) + 1
-        else:
-            version = 1
-
+        version = version.get("version", 1) + 1 if version else 1
         urldiary["version"] = version
         try:
             urldiary = json.loads(json.dumps(urldiary, encoding="latin1"))
@@ -479,13 +475,13 @@ def querystring(needles, _or=False, _and=False, field=None):
 
     searchstr = ""
     for n in needles:
-        searchstr += "%s" % n[:256]
+        searchstr += f"{n[:256]}"
         searchstr = escape_and_filter(searchstr)
         if n != needles[-1]:
             if _or:
-                searchstr = "%s %s " % (searchstr, _or)
+                searchstr = f"{searchstr} {_or} "
             elif _and:
-                searchstr = "%s %s " % (searchstr, _and)
+                searchstr = f"{searchstr} {_and} "
 
     return {
         "query_string": {
@@ -523,22 +519,20 @@ def build_query(content, str_use_fields=False):
         phraseqs_contains = []
         for rule in values:
             for rulekey, needles in rule.iteritems():
-                if rulekey == "must":
-                    for s in needles:
-                        if phrase_q and "*" not in s:
-                            phraseqs_contains.append(s)
-                        else:
-                            strqs_contains.append(s)
-
-                elif rulekey == "any":
-                    for s in needles:
+                for s in needles:
+                    if rulekey == "any":
                         if phrase_q and "*" not in s:
                             phraseqs_anyof.append(s)
                         else:
                             strqs_anyof.append(s)
 
+                    elif rulekey == "must":
+                        if phrase_q and "*" not in s:
+                            phraseqs_contains.append(s)
+                        else:
+                            strqs_contains.append(s)
+
         must = []
-        should = []
         if strqs_anyof:
             must.append(
                 querystring(
@@ -554,14 +548,17 @@ def build_query(content, str_use_fields=False):
                 )
             )
 
-        for phrase in phraseqs_contains:
-            must.append(matchphrase(_field_paths.get(key), phrase))
+        must.extend(
+            matchphrase(_field_paths.get(key), phrase)
+            for phrase in phraseqs_contains
+        )
 
-        for phrase in phraseqs_anyof:
-            should.append(matchphrase(_field_paths.get(key), phrase))
+        should = [
+            matchphrase(_field_paths.get(key), phrase)
+            for phrase in phraseqs_anyof
+        ]
 
-        nested = _nested_fields.get(key)
-        if nested:
+        if nested := _nested_fields.get(key):
             global_must.append(
                 get_nested_query(
                     nested, boolquery(must=must, should=should)
@@ -595,20 +592,21 @@ def build_search_query(item):
                 rules[op] = [{"must": []}]
             rules[op][0]["must"].append(search)
 
-    if not rules:
-        return {
+    return (
+        build_query(rules, str_use_fields=True)
+        if rules
+        else {
             "query": {
                 "bool": {
                     "must": {
                         "query_string": {
-                            "query": "%s" % escape_and_filter(item[:256])
+                            "query": f"{escape_and_filter(item[:256])}"
                         }
                     }
                 }
             }
         }
-
-    return build_query(rules, str_use_fields=True)
+    )
 
 
 class URLDiary(object):
@@ -649,8 +647,7 @@ class URLDiary(object):
             return
 
         for url in requested_urls:
-            requestlog = requestlogs.get(url)
-            if requestlog:
+            if requestlog := requestlogs.get(url):
                 self.logs.append({
                     "url": url,
                     "log": requestlog
@@ -693,10 +690,7 @@ class RequestFinder(object):
         all found requests made for a url
         @param flowmapping: a dictionary of netflow:url values"""
         tlspath = cwd("tlsmaster.txt", analysis=self.task_id)
-        tlsmaster = {}
-        if os.path.exists(tlspath):
-            tlsmaster = read_tlsmaster(tlspath)
-
+        tlsmaster = read_tlsmaster(tlspath) if os.path.exists(tlspath) else {}
         if tlsmaster or not self.handlers:
             self._create_handlers(tlsmaster, ports=ports)
 
@@ -718,15 +712,10 @@ class RequestFinder(object):
                     continue
 
                 if isinstance(sent, dpkt.http.Request):
-                    url = "%s://%s%s" % (
-                        protocol,
-                        sent.headers.get("host", "%s:%s" % (flow[2], flow[3])),
-                        sent.uri
-                    )
+                    url = f'{protocol}://{sent.headers.get("host", f"{flow[2]}:{flow[3]}")}{sent.uri}'
+
                 else:
-                    url = "%s://%s:%s" % (
-                        protocol, flow[2], flow[3]
-                    )
+                    url = f"{protocol}://{flow[2]}:{flow[3]}"
 
                 report = reports.setdefault(tracked_url, {})
                 requested = report.setdefault("requested", [])
@@ -757,19 +746,12 @@ class RequestFinder(object):
     def _create_handlers(self, tlsmaster={}, ports=[]):
         tls_ports = [443, 4443, 8443]
         http_ports = [80, 8000, 8080]
-        for port in ports:
-            if port not in tls_ports:
-                http_ports.append(port)
-
+        http_ports.extend(port for port in ports if port not in tls_ports)
         self.handlers = {
             "generic": forward_handler
         }
         for httpport in http_ports:
-            self.handlers.update({
-                httpport: http_handler
-            })
+            self.handlers[httpport] = http_handler
         if tlsmaster:
             for tlsport in tls_ports:
-                self.handlers.update({
-                    tlsport: lambda: https_handler(tlsmaster)
-                })
+                self.handlers[tlsport] = lambda: https_handler(tlsmaster)

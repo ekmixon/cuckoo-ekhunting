@@ -65,7 +65,7 @@ class Physical(Machinery):
             if label == m.label:
                 return m
 
-        raise CuckooMachineError("No machine with label: %s." % label)
+        raise CuckooMachineError(f"No machine with label: {label}.")
 
     def start(self, label, task, revert=True):
         """Start a physical machine.
@@ -108,7 +108,7 @@ class Physical(Machinery):
             if "Shutdown of remote machine succeeded" not in output:
                 raise CuckooMachineError("Unable to initiate RPC request")
             else:
-                log.debug("Reboot success: %s." % label)
+                log.debug(f"Reboot success: {label}.")
 
             # Deploy a clean image through FOG, assuming we're using FOG.
             self.fog_queue_task(label)
@@ -122,12 +122,11 @@ class Physical(Machinery):
         """Lists physical machines installed.
         @return: physical machine names list.
         """
-        active_machines = []
-        for machine in self.machines():
-            if self._status(machine.label) == self.RUNNING:
-                active_machines.append(machine.label)
-
-        return active_machines
+        return [
+            machine.label
+            for machine in self.machines()
+            if self._status(machine.label) == self.RUNNING
+        ]
 
     def _status(self, label):
         """Gets current status of a physical machine.
@@ -166,17 +165,12 @@ class Physical(Machinery):
 
         # If the agent responded successfully, then the physical machine
         # is running
-        if status:
-            return self.RUNNING
-
-        return self.ERROR
+        return self.RUNNING if status else self.ERROR
 
     def fog_query(self, uri, data={}):
         """Wrapper around requests for simplifying FOG API access. Assuming
         you can call what FOG is providing an API."""
-        url = "http://%s/fog/management/index.php?%s" % (
-            self.options.fog.hostname, uri,
-        )
+        url = f"http://{self.options.fog.hostname}/fog/management/index.php?{uri}"
 
         data.update({
             "uname": self.options.fog.username,
@@ -208,11 +202,12 @@ class Physical(Machinery):
         # is not in our list of supported versions (i.e., 1.3.4 and 1.4.4).
         version = re.match(
             "Running Version\\s+(([0-9]+\\.)+[0-9]+)",
-            b.find("div", {"id": "version"}).text
-        ).group(1)
+            b.find("div", {"id": "version"}).text,
+        )[1]
+
 
         # This may be better suited to go in cuckoo.common.constants.
-        if version != "1.3.4" and version != "1.4.4":
+        if version not in ["1.3.4", "1.4.4"]:
             log.warning(
                 "The current version of FOG was detected as %s. The "
                 "currently supported versions are: 1.3.4 and 1.4.4." % version

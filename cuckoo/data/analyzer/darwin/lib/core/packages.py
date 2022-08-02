@@ -17,7 +17,7 @@ def choose_package_class(file_type, file_name, suggestion=None):
         if not name:
             return None
 
-    full_name = "modules.packages.%s" % name
+    full_name = f"modules.packages.{name}"
     try:
         # FIXME(rodionovd):
         # I couldn't figure out how to make __import__ import anything from
@@ -73,7 +73,7 @@ class Package(object):
         # Any analysis options?
         self.options = kwargs.get("options", {})
         # A timeout for analysis
-        self.timeout = kwargs.get("timeout", None)
+        self.timeout = kwargs.get("timeout")
         # Command-line arguments for the target.
         self.args = self.options.get("args", [])
         # Choose an analysis method (or fallback to apicalls)

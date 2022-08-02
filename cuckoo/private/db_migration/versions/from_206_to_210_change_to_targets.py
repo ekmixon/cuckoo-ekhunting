@@ -154,11 +154,9 @@ def upgrade():
             if not sample and not url:
                 continue
 
-            new_target = target_from_sample(
+            if new_target := target_from_sample(
                 target, category, last_id, sample, url
-            )
-
-            if new_target:
+            ):
                 new_targets.append(new_target)
 
     # PostgreSQL and MySQL have different names for the foreign key of
@@ -168,8 +166,7 @@ def upgrade():
         "mysqldb": "tasks_ibfk_1",
         "psycopg2": "tasks_sample_id_fkey",
     }
-    fkey = fkey_name.get(dbdriver)
-    if fkey:
+    if fkey := fkey_name.get(dbdriver):
         op.drop_constraint(fkey, "tasks", type_="foreignkey")
 
     if dbdriver != "pysqlite":
@@ -180,8 +177,9 @@ def upgrade():
         # Drop table and create a new one for Sqlite, since it cannot
         # handle deleting columns etc
         old_tasks = conn.execute(
-            "SELECT %s FROM tasks" % ",".join(task_columns)
+            f'SELECT {",".join(task_columns)} FROM tasks'
         ).fetchall()
+
 
         op.rename_table("tasks", "old_tasks")
         op.drop_table("old_tasks")

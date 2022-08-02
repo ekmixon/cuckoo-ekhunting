@@ -73,7 +73,7 @@ class Zer0m0nIoctl(Ioctl):
 
     def invoke(self, action, buf):
         if action not in self.actions:
-            raise RuntimeError("Invalid ioctl action: %s" % action)
+            raise RuntimeError(f"Invalid ioctl action: {action}")
 
         return Ioctl.invoke(
             self, CTL_CODE_BASE + self.actions.index(action) * 4, buf,

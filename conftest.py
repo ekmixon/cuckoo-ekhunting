@@ -15,23 +15,19 @@ collect_ignore = []
 
 if is_windows():
     sys.path.insert(0, "cuckoo/data/analyzer/windows")
-    collect_ignore.append("tests/linux")
-    collect_ignore.append("tests/darwin")
-
+    collect_ignore.extend(("tests/linux", "tests/darwin"))
     # Copy over the monitoring binaries as if we were in a real analysis.
     monitor = open("cuckoo/data/monitor/latest", "rb").read().strip()
-    for filename in os.listdir("cuckoo/data/monitor/%s" % monitor):
+    for filename in os.listdir(f"cuckoo/data/monitor/{monitor}"):
         shutil.copy(
-            "cuckoo/data/monitor/%s/%s" % (monitor, filename),
-            "cuckoo/data/analyzer/windows/bin/%s" % filename
+            f"cuckoo/data/monitor/{monitor}/{filename}",
+            f"cuckoo/data/analyzer/windows/bin/{filename}",
         )
+
 
 if is_linux():
     sys.path.insert(0, "cuckoo/data/analyzer/linux")
-    collect_ignore.append("tests/windows")
-    collect_ignore.append("tests/darwin")
-
+    collect_ignore.extend(("tests/windows", "tests/darwin"))
 if is_macosx():
     sys.path.insert(0, "cuckoo/data/analyzer/darwin")
-    collect_ignore.append("tests/windows")
-    collect_ignore.append("tests/linux")
+    collect_ignore.extend(("tests/windows", "tests/linux"))

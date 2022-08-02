@@ -71,9 +71,7 @@ class CommandMessage(object):
     @property
     def args(self):
         args = self.json_message.get("args", {})
-        if not isinstance(args, dict):
-            return {}
-        return args
+        return args if isinstance(args, dict) else {}
 
     @property
     def respond(self):
@@ -96,14 +94,11 @@ class MessageReader(object):
                 return l
 
             if len(self.rcvbuf) >= self.MAX_INFO_BUF:
-                raise ValueError(
-                    "Received message exceeds %s bytes" % self.MAX_INFO_BUF
-                )
-            buf = self._read()
-            if not buf:
+                raise ValueError(f"Received message exceeds {self.MAX_INFO_BUF} bytes")
+            if buf := self._read():
+                self.rcvbuf += buf
+            else:
                 raise EOFError("Last byte is: '%r'" % self.rcvbuf[:1])
-
-            self.rcvbuf += buf
 
     def _read(self, amount=4096):
         return self.socket.recv(amount)
@@ -129,10 +124,7 @@ class MessageReader(object):
             return None
 
         message = CommandMessage(message)
-        if not message.validate():
-            return None
-
-        return message
+        return message if message.validate() else None
 
 class CommandHandler(object):
     """Finds the correct method in the correct module or class, executes it,
@@ -165,8 +157,7 @@ class CommandHandler(object):
             )
             return False
 
-        module = handler(message)
-        if module:
+        if module := handler(message):
             success, data = self._run_command(
                 module, message.method, message
             )
@@ -231,7 +222,7 @@ class MessageClient(threading.Thread):
                 log.exception("Error connecting back to resultserver: %s", e)
 
                 if tries >= 3:
-                    raise CuckooError("Error when connecting to host: %s" % e)
+                    raise CuckooError(f"Error when connecting to host: {e}")
 
                 # Wait a few seconds before trying to connect again
                 time.sleep(tries * 5)
@@ -268,21 +259,21 @@ class MessageClient(threading.Thread):
                     self.cmdhandler.last_return = None
 
                 self.queue_message(
-                    type="response", command_id=command_message.command_id,
+                    type="response",
+                    command_id=command_message.command_id,
                     data={
                         "success": success,
-                        "executed": "%s - %s" % (
-                            command_message.category, command_message.method
-                        ),
-                        "return_data": self.cmdhandler.last_return
-                    }
+                        "executed": f"{command_message.category} - {command_message.method}",
+                        "return_data": self.cmdhandler.last_return,
+                    },
                 )
+
 
             if not self.mesreader.buffered_message():
                 break
 
     def send_messages(self):
-        for c in range(len(self.sendqueue)):
+        for _ in range(len(self.sendqueue)):
             message = self.sendqueue.pop(0)
             try:
                 message = json.dumps(message)
@@ -300,10 +291,12 @@ class MessageClient(threading.Thread):
         while self.do_run:
             # If the realtime connection is not connected and the analyzer
             # is still running, try to reconnect.
-            if not self.connected:
-                if self.analyzer.runtime < int(self.analyzer.config.timeout):
-                    if self.analyzer.is_running:
-                        self.connect()
+            if (
+                not self.connected
+                and self.analyzer.runtime < int(self.analyzer.config.timeout)
+                and self.analyzer.is_running
+            ):
+                self.connect()
 
             try:
                 infds, outfds, errfds = select.select(

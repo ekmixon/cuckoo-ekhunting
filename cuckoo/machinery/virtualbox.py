@@ -146,9 +146,7 @@ class VirtualBox(Machinery):
         log.debug("Starting vm %s", label)
 
         if self._status(label) == self.RUNNING:
-            raise CuckooMachineError(
-                "Trying to start an already started VM: %s" % label
-            )
+            raise CuckooMachineError(f"Trying to start an already started VM: {label}")
 
         machine = self.db.view_machine_by_label(label)
 
@@ -227,7 +225,7 @@ class VirtualBox(Machinery):
         @param label: virtual machine name.
         @raise CuckooMachineError: if unable to stop.
         """
-        log.debug("Stopping vm %s" % label)
+        log.debug(f"Stopping vm {label}")
 
         status = self._status(label)
 
@@ -237,10 +235,8 @@ class VirtualBox(Machinery):
         if status == self.SAVED:
             return
 
-        if status == self.POWEROFF or status == self.ABORTED:
-            raise CuckooMachineError(
-                "Trying to stop an already stopped VM: %s" % label
-            )
+        if status in [self.POWEROFF, self.ABORTED]:
+            raise CuckooMachineError(f"Trying to stop an already stopped VM: {label}")
 
         vm_state_timeout = config("cuckoo:timeouts:vm_state")
 
@@ -263,7 +259,7 @@ class VirtualBox(Machinery):
                     time.sleep(1)
                     stop_me += 1
                 else:
-                    log.debug("Stopping vm %s timeouted. Killing" % label)
+                    log.debug(f"Stopping vm {label} timeouted. Killing")
                     proc.terminate()
 
             if proc.returncode != 0 and stop_me < vm_state_timeout:
@@ -271,9 +267,7 @@ class VirtualBox(Machinery):
                     "VBoxManage exited with error powering off the machine"
                 )
         except OSError as e:
-            raise CuckooMachineError(
-                "VBoxManage failed powering off the machine: %s" % e
-            )
+            raise CuckooMachineError(f"VBoxManage failed powering off the machine: {e}")
 
         self._wait_status(label, self.POWEROFF, self.ABORTED, self.SAVED)
 
@@ -287,10 +281,8 @@ class VirtualBox(Machinery):
         if status == self.SAVED:
             return
 
-        if status == self.POWEROFF or status == self.ABORTED:
-            raise CuckooMachineError(
-                "Trying to stop an already stopped VM: %s" % label
-            )
+        if status in [self.POWEROFF, self.ABORTED]:
+            raise CuckooMachineError(f"Trying to stop an already stopped VM: {label}")
 
         command = [
             self.options.virtualbox.path, "controlvm", label, "acpipowerbutton"
@@ -304,9 +296,7 @@ class VirtualBox(Machinery):
             )
 
         except OSError as e:
-            raise CuckooMachineError(
-                "VBoxManage failed powering off the machine: %s" % e
-            )
+            raise CuckooMachineError(f"VBoxManage failed powering off the machine: {e}")
 
         stopcount = 0
         while self._status(label) != self.POWEROFF:
@@ -336,9 +326,7 @@ class VirtualBox(Machinery):
                 close_fds=True
             ).communicate()
         except OSError as e:
-            raise CuckooMachineError(
-                "VBoxManage error listing installed machines: %s" % e
-            )
+            raise CuckooMachineError(f"VBoxManage error listing installed machines: {e}")
 
         machines = []
         for line in output.split("\n"):
@@ -394,7 +382,7 @@ class VirtualBox(Machinery):
             return False
 
         for line in output.split("\n"):
-            if not line.startswith("%s=" % field):
+            if not line.startswith(f"{field}="):
                 continue
 
             if line.count('"') == 2:
@@ -416,9 +404,7 @@ class VirtualBox(Machinery):
             self.set_status(label, status)
             return status
 
-        raise CuckooMachineError(
-            "Unable to get status for %s" % label
-        )
+        raise CuckooMachineError(f"Unable to get status for {label}")
 
     def dump_memory(self, label, path):
         """Takes a memory dump.
@@ -442,16 +428,10 @@ class VirtualBox(Machinery):
                     "machine %s: %s", label, err
                 )
         except OSError as e:
-            raise CuckooMachineError(
-                "VBoxManage failed to return its version: %s" % e
-            )
+            raise CuckooMachineError(f"VBoxManage failed to return its version: {e}")
 
         # VirtualBox version 4 and 5.
-        if output.startswith("5"):
-            dumpcmd = "dumpvmcore"
-        else:
-            dumpcmd = "dumpguestcore"
-
+        dumpcmd = "dumpvmcore" if output.startswith("5") else "dumpguestcore"
         try:
             args = [
                 self.options.virtualbox.path,
@@ -498,9 +478,7 @@ class VirtualBox(Machinery):
                 label, self.vminfo(label, "vrdeports")
             )
         except OSError as e:
-            raise CuckooMachineError(
-                "VBoxManage failed to enable remote control: %s" % e
-            )
+            raise CuckooMachineError(f"VBoxManage failed to enable remote control: {e}")
 
     def disable_remote_control(self, label):
         try:
@@ -517,9 +495,7 @@ class VirtualBox(Machinery):
                 "with label %s" % label
             )
         except OSError as e:
-            raise CuckooMachineError(
-                "VBoxManage failed to disable remote control: %s" % e
-            )
+            raise CuckooMachineError(f"VBoxManage failed to disable remote control: {e}")
 
     def get_remote_control_params(self, label):
         port = int(self.vminfo(label, "vrdeport"))
@@ -560,10 +536,7 @@ class VirtualBox(Machinery):
     # TODO Optimize this method away simply by invoking "vboxmanage modifyvm"
     # once with all parameters (i.e., --vrde --vrdeport 1234 etc).
     def _set_flag(self, label, key, val):
-        args = [
-            self.options.virtualbox.path, "modifyvm", label,
-            "--%s" % key, val
-        ]
+        args = [self.options.virtualbox.path, "modifyvm", label, f"--{key}", val]
         proc = Popen(
             args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             close_fds=True
@@ -581,9 +554,7 @@ class VirtualBox(Machinery):
             log.error("Unexpected HDD UUID value: %s", hdd_uuid)
             return
 
-        hdd_uuid = hdd_uuid.split('"', 2)[1]
-
-        if hdd_uuid:
+        if hdd_uuid := hdd_uuid.split('"', 2)[1]:
             log.debug("Compacting HDD %s for VM %s", hdd_uuid, label)
             try:
                 args = [

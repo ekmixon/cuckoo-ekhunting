@@ -109,7 +109,7 @@ class Analyzer(object):
             package = self.config.package
 
         # Generate the package path.
-        package_name = "modules.packages.%s" % package
+        package_name = f"modules.packages.{package}"
 
         # Try to import the analysis package.
         try:
@@ -132,7 +132,7 @@ class Analyzer(object):
 
         # Initialize Auxiliary modules
         Auxiliary()
-        prefix = auxiliary.__name__ + "."
+        prefix = f"{auxiliary.__name__}."
         for loader, name, ispkg in pkgutil.iter_modules(auxiliary.__path__, prefix):
             if ispkg:
                 continue

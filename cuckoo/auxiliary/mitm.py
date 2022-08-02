@@ -53,13 +53,16 @@ class MITM(Auxiliary):
         PORT_LOCK.release()
 
         args = [
-            mitmdump, "-q",
-            "-s", '"{}" {}'.format(
-                script, self.task.options.get("mitm", "")
-            ).strip(),
-            "-p", "%d" % self.port,
-            "-w", cwd("dump.mitm", analysis=self.task.id),
+            mitmdump,
+            "-q",
+            "-s",
+            f'"{script}" {self.task.options.get("mitm", "")}'.strip(),
+            "-p",
+            "%d" % self.port,
+            "-w",
+            cwd("dump.mitm", analysis=self.task.id),
         ]
+
 
         self.proc = Popen(
             args, close_fds=True,
@@ -88,18 +91,19 @@ class MITM(Auxiliary):
                  self.proc.pid, self.machine.resultserver_ip, self.port)
 
     def stop(self):
-        if self.proc and not self.proc.poll():
+        if not self.proc or self.proc.poll():
+            return
+        try:
+            self.proc.terminate()
+            PORTS.remove(self.port)
+        except:
             try:
-                self.proc.terminate()
-                PORTS.remove(self.port)
-            except:
-                try:
-                    if not self.proc.poll():
-                        log.debug("Killing mitmdump")
-                        self.proc.kill()
-                        PORTS.remove(self.port)
-                except OSError as e:
-                    log.debug("Error killing mitmdump: %s. Continue", e)
-                except Exception as e:
-                    log.exception("Unable to stop mitmdump with pid %d: %s",
-                                  self.proc.pid, e)
+                if not self.proc.poll():
+                    log.debug("Killing mitmdump")
+                    self.proc.kill()
+                    PORTS.remove(self.port)
+            except OSError as e:
+                log.debug("Error killing mitmdump: %s. Continue", e)
+            except Exception as e:
+                log.exception("Unable to stop mitmdump with pid %d: %s",
+                              self.proc.pid, e)

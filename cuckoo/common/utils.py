@@ -38,26 +38,18 @@ def convert_char(c):
     @param c: dirty char.
     @return: sanitized char.
     """
-    if c in PRINTABLE_CHARACTERS:
-        return c
-    else:
-        return "\\x%02x" % ord(c)
+    return c if c in PRINTABLE_CHARACTERS else "\\x%02x" % ord(c)
 
 def is_printable(s):
     """Test if a string is printable."""
-    for c in s:
-        if c not in PRINTABLE_CHARACTERS:
-            return False
-    return True
+    return all(c in PRINTABLE_CHARACTERS for c in s)
 
 def convert_to_printable(s):
     """Convert char to printable.
     @param s: string.
     @return: sanitized string.
     """
-    if is_printable(s):
-        return s
-    return "".join(convert_char(c) for c in s)
+    return s if is_printable(s) else "".join(convert_char(c) for c in s)
 
 def random_token():
     """Generate a random token that can be used as a secret/password."""
@@ -75,10 +67,10 @@ def constant_time_compare(a, b):
 
 def validate_hash(h):
     """Validates a hash by length and contents."""
-    if len(h) not in (32, 40, 64, 128):
+    if len(h) in {32, 40, 64, 128}:
+        return bool(re.match("[0-9a-fA-F]*$", h))
+    else:
         return False
-
-    return bool(re.match("[0-9a-fA-F]*$", h))
 
 def validate_url(url, allow_invalid=False):
     """Validates an URL using Django's built-in URL validator"""
@@ -95,12 +87,12 @@ def validate_url(url, allow_invalid=False):
         parts = url.split("://")
         # In case of "http://https://example.com" this will take the
         # "https://" part and not the "http://" part.
-        if parts[-2] == "http" or parts[-2] == "https":
-            return "%s://%s" % (parts[-2], parts[-1])
+        if parts[-2] in ["http", "https"]:
+            return f"{parts[-2]}://{parts[-1]}"
 
     try:
-        val("http://%s" % url)
-        return "http://%s" % url
+        val(f"http://{url}")
+        return f"http://{url}"
     except:
         pass
 
@@ -140,19 +132,22 @@ class Singleton(type):
     """
     _instances = {}
 
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+    def __call__(self, *args, **kwargs):
+        if self not in self._instances:
+            self._instances[self] = super(Singleton, self).__call__(*args, **kwargs)
+        return self._instances[self]
 
 class ThreadSingleton(type):
     """Singleton per thread."""
     _instances = threading.local()
 
-    def __call__(cls, *args, **kwargs):
-        if not getattr(cls._instances, "instance", None):
-            cls._instances.instance = super(ThreadSingleton, cls).__call__(*args, **kwargs)
-        return cls._instances.instance
+    def __call__(self, *args, **kwargs):
+        if not getattr(self._instances, "instance", None):
+            self._instances.instance = super(ThreadSingleton, self).__call__(
+                *args, **kwargs
+            )
+
+        return self._instances.instance
 
 def to_unicode(s):
     """Attempt to fix non uft-8 string into utf-8. It tries to guess input encoding,
@@ -235,7 +230,7 @@ def exception_message():
         if platform.linux_distribution()[0]:
             return " ".join(platform.linux_distribution())
         elif platform.mac_ver()[0]:
-            return "%s %s" % (platform.mac_ver()[0], platform.mac_ver()[2])
+            return f"{platform.mac_ver()[0]} {platform.mac_ver()[2]}"
         else:
             return "Unknown"
 
@@ -345,18 +340,14 @@ def supported_version(version, minimum, maximum):
     if minimum and StrictVersion(version) < StrictVersion(minimum):
         return False
 
-    if maximum and StrictVersion(version) > StrictVersion(maximum):
-        return False
-
-    return True
+    return not maximum or StrictVersion(version) <= StrictVersion(maximum)
 
 def list_of(l, cls):
-    if not isinstance(l, (tuple, list)):
-        return False
-    for value in l:
-        if not isinstance(value, cls):
-            return False
-    return True
+    return (
+        all(isinstance(value, cls) for value in l)
+        if isinstance(l, (tuple, list))
+        else False
+    )
 
 def list_of_ints(l):
     return list_of(l, (int, long))
